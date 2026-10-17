@@ -1,122 +1,144 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="farmer-dashboard">
+      {}
+      <aside className="sidebar">
+        <div className="brand">
+          <img
+            src="/govimart-logo.png"
+            alt="GoviMart logo"
+            className="brand-logo"
+          />
+          <h2>GoviMart</h2>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
+        <p className="menu-heading">FARMER MENU</p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <nav className="sidebar-nav">
+          <a href="#dashboard" className="nav-link active">
+            <span>▦</span> Dashboard
+          </a>
+          <a href="#products" className="nav-link">
+            <span>▣</span> My Products
+          </a>
+          <a href="#add-product" className="nav-link">
+            <span>＋</span> Add Product
+          </a>
+          <a href="#orders" className="nav-link">
+            <span>▤</span> Orders
+          </a>
+          <a href="#profile" className="nav-link">
+            <span>◉</span> My Profile
+          </a>
+        </nav>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        <div className="sidebar-footer">
+          <span>🌱</span>
+          <p>Growing together, from farm to home.</p>
+        </div>
+      </aside>
+
+      {}
+      <main className="main-content">
+        <header className="topbar">
+          <div>
+            <p className="topbar-label">FARMER PORTAL</p>
+            <h2>Dashboard</h2>
+          </div>
+
+          <div className="farmer-profile">
+            <div className="profile-avatar">F</div>
+            <div>
+              <strong>Farmer</strong>
+              <p>GoviMart Member</p>
+            </div>
+          </div>
+        </header>
+
+        <section className="welcome-section" id="dashboard">
+          <div>
+            <p className="eyebrow">WELCOME TO GOVIMART</p>
+            <h1>Your farm, your marketplace.</h1>
+            <p>
+              Manage your products, track your stock, and connect
+              with customers directly.
+            </p>
+
+            <a href="#add-product" className="primary-button">
+              + Add New Product
+            </a>
+          </div>
+
+         <div className="welcome-icon">
+             <img
+          src="/govimart-welcome.png"
+         alt="Farmer holding a crate of fresh produce"
+  />
+</div>
+        </section>
+
+        <section className="stats-grid">
+          <article className="stat-card">
+            <div className="stat-icon green-icon">▣</div>
+            <p>Total Products</p>
+            <h2>0</h2>
+            <span>Products listed</span>
+          </article>
+
+          <article className="stat-card">
+            <div className="stat-icon orange-icon">▤</div>
+            <p>Available Stock</p>
+            <h2>0</h2>
+            <span>Items in stock</span>
+          </article>
+
+          <article className="stat-card">
+            <div className="stat-icon blue-icon">🛒</div>
+            <p>Total Orders</p>
+            <h2>0</h2>
+            <span>Orders received</span>
+          </article>
+
+          <article className="stat-card">
+            <div className="stat-icon purple-icon">Rs.</div>
+            <p>Sales Revenue</p>
+            <h2>Rs. 0.00</h2>
+            <span>Total sales</span>
+          </article>
+        </section>
+
+        <section className="content-panel" id="products">
+          <div className="panel-heading">
+            <div>
+              <h2>My Products</h2>
+              <p>Your recently listed farm products</p>
+            </div>
+
+            <a href="#add-product" className="secondary-button">
+              View All
+            </a>
+          </div>
+
+          <div className="empty-state">
+            <div className="empty-icon">🌱</div>
+            <h3>No products yet</h3>
+            <p>
+              Start selling your fresh farm products on GoviMart.
+            </p>
+            <a href="#add-product" className="primary-button">
+              Add Your First Product
+            </a>
+          </div>
+        </section>
+
+        <footer className="dashboard-footer">
+          © 2026 GoviMart. Connecting farmers and consumers.
+        </footer>
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;

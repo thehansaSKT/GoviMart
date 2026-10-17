@@ -5,6 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
+const productRoutes = require("./routes/productRoutes");
 
 dotenv.config();
 
@@ -16,6 +17,8 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to GoviMart API" });
 });
+
+app.use("/api/products", productRoutes);
 
 const startServer = async () => {
   await connectDB();
