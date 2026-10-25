@@ -163,54 +163,7 @@ const handleProductAdded = async () => {
           />
         </section>
 
-        <section className="content-panel" id="products">
-          <div className="panel-heading">
-            <div>
-              <h2>My Products</h2>
-              <p>Your recently listed farm products</p>
-            </div>
 
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={fetchProducts}
-            >
-              Refresh
-            </button>
-          </div>
-
-          {loading ? (
-            <p>Loading products...</p>
-          ) : error ? (
-            <div>
-              <p>{error}</p>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={fetchProducts}
-              >
-                Try Again
-              </button>
-            </div>
-          ) : products.length === 0 ? (
-            <EmptyProducts onAddProduct={handleAddProduct} />
-          ) : (
-            <div className="products-grid">
-              {products.map((product) => (
-                <ProductCard
-                  key={product._id}
-                  product={product}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <footer className="dashboard-footer">
-          © 2026 GoviMart. Connecting farmers and consumers.
-        </footer>
         </>
 )}
 

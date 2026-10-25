@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -81,9 +80,16 @@ function MyProducts() {
             <div>
               <h2>My Products</h2>
               <p>Manage your listed farm products</p>
+              <br></br>
             </div>
 
-            
+            <button
+  type="button"
+  className="secondary-button"
+  onClick={() => window.location.href = "/farmer/dashboard"}
+>
+  Cancel
+</button>
           </div>
 
           {loading ? (
@@ -118,5 +124,7 @@ function MyProducts() {
     </div>
   );
 }
-
+const handleCancel = () => {
+  navigate("/farmer/dashboard");
+};
 export default MyProducts;

@@ -1,19 +1,7 @@
 function ProductCard({ product, onEdit, onDelete }) {
   return (
     <article className="product-card">
-      <div className="product-image-wrapper">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="product-image"
-          />
-        ) : (
-          <div className="product-image-placeholder">
-            🌾
-          </div>
-        )}
-      </div>
+      
 
       <div className="product-details">
         <span className="product-category">
@@ -50,6 +38,8 @@ function ProductCard({ product, onEdit, onDelete }) {
           >
             Delete
           </button>
+          
+          
         </div>
       </div>
     </article>

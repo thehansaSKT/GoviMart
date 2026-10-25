@@ -88,12 +88,18 @@ function Sidebar({ onAddProduct }) {
         >
           <span>◉</span> My Profile
         </a>
+        
       </nav>
 
-      <div className="sidebar-footer">
-        <span>🌱</span>
-        <p>Growing together, from farm to home.</p>
-      </div>
+      
+<div className="sidebar-footer">
+  <img
+    src="/govimart-farmer-banner.png"
+    alt="Growing together, from farm to home. Your farm, your marketplace."
+    className="sidebar-footer-image"
+  />
+</div>
+
     </aside>
   );
 }

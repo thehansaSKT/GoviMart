@@ -24,7 +24,7 @@ a {
 
 .sidebar {
   width: 250px;
-  background: #123d2a;
+  background-color: #26432E;
   color: #ffffff;
   padding: 28px 18px;
   position: fixed;
@@ -93,19 +93,6 @@ a {
   background: #276b47;
 }
 
-.sidebar-footer {
-  margin-top: auto;
-  padding: 16px;
-  background: #1b5037;
-  border-radius: 12px;
-  color: #d5e7da;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.sidebar-footer p {
-  margin-bottom: 0;
-}
 
 .main-content {
   margin-left: 250px;
@@ -387,10 +374,6 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sidebar-footer {
-    display: none;
-  }
-
   .main-content {
     margin-left: 0;
     padding: 20px 16px;
@@ -427,7 +410,42 @@ a {
   .content-panel {
     padding: 18px;
   }
+ 
 }
+
+
+.sidebar-footer {
+  margin-top: auto;
+  margin-left: -18px;
+  margin-right: -18px;
+  margin-bottom: -28px;
+
+  width: calc(100% + 36px);
+  height: 300px;
+
+  padding: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  background-color: #2D4431;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar-footer-image {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+  object-position: center center;
+
+  background-color: #203f2e;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 
 @media (max-width: 380px) {
   .sidebar-nav {
@@ -602,7 +620,9 @@ a {
 .delete-button {
   background: #fff0ed;
   color: #b42318;
-  border: 1px solid #f3c4bd;
+   font-size: 13px;
+  font-weight: bold;
+  border: 2px solid #f3c4bd;
   border-radius: 8px;
   padding: 10px 14px;
   cursor: pointer;
@@ -688,4 +708,194 @@ a {
   }
 }
 
+
+.profile-panel {
+  padding: 32px;
+}
+
+.profile-card {
+  max-width: 850px;
+  margin: 24px auto 0;
+  padding: 32px;
+  background: #fffdf5;
+  border: 1px solid #e9eadf;
+  border-radius: 18px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(18, 61, 42, 0.06);
+}
+
+.profile-avatar-large {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 90px;
+  height: 90px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: #e0eee1;
+  color: #287447;
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.profile-card h3 {
+  margin: 0;
+  color: #123d2a;
+  font-size: 26px;
+}
+
+.profile-role {
+  margin: 8px 0 28px;
+  color: #6b7c70;
+}
+
+.profile-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  text-align: left;
+}
+
+.profile-field {
+  padding: 18px;
+  background: #f6f8f5;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.profile-field span {
+  display: block;
+  margin-bottom: 8px;
+  color: #718078;
+  font-size: 14px;
+}
+
+.profile-field strong {
+  color: #244b35;
+  font-size: 16px;
+}
+
+@media (max-width: 600px) {
+  .profile-panel {
+    padding: 20px;
+  }
+
+  .profile-card {
+    padding: 20px;
+  }
+
+  .profile-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile-field label {
+  display: block;
+  margin-bottom: 10px;
+  color: #718078;
+  font-size: 14px;
+}
+
+.profile-field input,
+.profile-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid #d5dfd5;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #123d2a;
+  font: inherit;
+}
+
+.profile-field input:focus,
+.profile-field textarea:focus {
+  outline: 2px solid #287447;
+  border-color: #287447;
+}
+
+.product-form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+/* My Profile page layout fixes */
+.profile-panel {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 28px;
+  overflow: hidden;
+}
+
+.profile-panel .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.profile-card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 24px 0 0;
+  padding: 32px;
+  background: #fffdf5;
+  border: 1px solid #e9eadf;
+  border-radius: 18px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.profile-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+  text-align: left;
+}
+
+.profile-field {
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 22px;
+  background: #f3f6f2;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+.profile-field strong {
+  display: block;
+  margin-top: 8px;
+  color: #244b35;
+  user-select: text;
+}
+
+.profile-field input,
+.profile-field textarea {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+}
+
+@media (max-width: 700px) {
+  .profile-panel {
+    padding: 18px;
+  }
+
+  .profile-card {
+    padding: 20px;
+  }
+
+  .profile-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
