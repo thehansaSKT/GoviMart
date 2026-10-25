@@ -1,8 +1,11 @@
-import { useState } from "react";
-import { addProduct } from "../../services/productService";
+import { useEffect, useState } from "react";
+import {
+  addProduct,
+  updateProduct,
+} from "../../services/productService";
 import "../../App.css";
 
-function AddProduct({ onProductAdded, onCancel }) {
+function AddProduct({ product = null, onProductAdded, onCancel }) {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -15,6 +18,34 @@ function AddProduct({ onProductAdded, onCancel }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const isEditing = Boolean(product);
+
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name || "",
+        description: product.description || "",
+        category: product.category || "Vegetables",
+        price: product.price ?? "",
+        quantity: product.quantity ?? "",
+        unit: product.unit || "kg",
+        imageUrl: product.imageUrl || "",
+      });
+    } else {
+      setFormData({
+        name: "",
+        description: "",
+        category: "Vegetables",
+        price: "",
+        quantity: "",
+        unit: "kg",
+        imageUrl: "",
+      });
+    }
+
+    setError("");
+  }, [product]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -39,8 +70,15 @@ function AddProduct({ onProductAdded, onCancel }) {
       return;
     }
 
-    if (Number(formData.price) <= 0 || Number(formData.quantity) < 0) {
-      setError("Price must be greater than zero and quantity cannot be negative.");
+    if (
+      !Number.isFinite(Number(formData.price)) ||
+      Number(formData.price) <= 0 ||
+      !Number.isFinite(Number(formData.quantity)) ||
+      Number(formData.quantity) < 0
+    ) {
+      setError(
+        "Enter a valid price greater than zero and a non-negative quantity."
+      );
       return;
     }
 
@@ -55,14 +93,17 @@ function AddProduct({ onProductAdded, onCancel }) {
         quantity: Number(formData.quantity),
       };
 
-      await addProduct(productData);
+      if (isEditing) {
+        await updateProduct(product._id, productData);
+      } else {
+        await addProduct(productData);
+      }
 
-      alert("Product added successfully!");
-      onProductAdded();
+      await onProductAdded();
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Could not add product. Please try again."
+          `Failed to ${isEditing ? "update" : "add"} product. Please try again.`
       );
     } finally {
       setLoading(false);
@@ -73,24 +114,22 @@ function AddProduct({ onProductAdded, onCancel }) {
     <section className="content-panel add-product-panel">
       <div className="panel-heading">
         <div>
-          <h2>Add New Product</h2>
-          <p>List your fresh farm products on GoviMart.</p>
+          <h2>{isEditing ? "Edit Product" : "Add New Product"}</h2>
+          <p>
+            {isEditing
+              ? "Update your product details."
+              : "List your fresh farm products on GoviMart."}
+          </p>
         </div>
 
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
+        
       </div>
 
       <form className="product-form" onSubmit={handleSubmit}>
         <div className="form-group">
-          <label htmlFor="name">Product Name *</label>
+          <label htmlFor="product-name">Product Name *</label>
           <input
-            id="name"
+            id="product-name"
             name="name"
             value={formData.name}
             onChange={handleChange}
@@ -101,9 +140,9 @@ function AddProduct({ onProductAdded, onCancel }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="category">Category *</label>
+          <label htmlFor="product-category">Category *</label>
           <select
-            id="category"
+            id="product-category"
             name="category"
             value={formData.category}
             onChange={handleChange}
@@ -117,9 +156,9 @@ function AddProduct({ onProductAdded, onCancel }) {
         </div>
 
         <div className="form-group full-width">
-          <label htmlFor="description">Description *</label>
+          <label htmlFor="product-description">Description *</label>
           <textarea
-            id="description"
+            id="product-description"
             name="description"
             value={formData.description}
             onChange={handleChange}
@@ -130,9 +169,9 @@ function AddProduct({ onProductAdded, onCancel }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="price">Price (Rs.) *</label>
+          <label htmlFor="product-price">Price (Rs.) *</label>
           <input
-            id="price"
+            id="product-price"
             name="price"
             type="number"
             min="0.01"
@@ -144,9 +183,9 @@ function AddProduct({ onProductAdded, onCancel }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="quantity">Available Quantity *</label>
+          <label htmlFor="product-quantity">Available Quantity *</label>
           <input
-            id="quantity"
+            id="product-quantity"
             name="quantity"
             type="number"
             min="0"
@@ -158,9 +197,9 @@ function AddProduct({ onProductAdded, onCancel }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="unit">Unit *</label>
+          <label htmlFor="product-unit">Unit *</label>
           <select
-            id="unit"
+            id="product-unit"
             name="unit"
             value={formData.unit}
             onChange={handleChange}
@@ -185,7 +224,11 @@ function AddProduct({ onProductAdded, onCancel }) {
             className="primary-button"
             disabled={loading}
           >
-            {loading ? "Saving..." : "Save Product"}
+            {loading
+              ? "Saving..."
+              : isEditing
+                ? "Update Product"
+                : "Save Product"}
           </button>
 
           <button

@@ -5,7 +5,9 @@ import StatCard from "../../components/StatCard";
 import EmptyProducts from "../../components/EmptyProducts";
 import ProductCard from "../../components/ProductCard";
 import AddProduct from "./AddProduct";
+
 import { getAllProducts } from "../../services/productService";
+import { deleteProduct } from "../../services/productService";
 
 import "../../App.css";
 
@@ -14,6 +16,7 @@ function FarmerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const fetchProducts = async () => {
     try {
@@ -44,35 +47,59 @@ function FarmerDashboard() {
     0
   );
 
-  const handleEdit = (product) => {
-    alert(`Edit ${product.name} — the edit form is coming next.`);
-  };
+ const handleEdit = (product) => {
+  setSelectedProduct(product);
+  setShowAddForm(true);
+};
 
-  const handleDelete = (id) => {
-    alert(`Delete product ${id} — delete functionality is coming next.`);
-  };
+const handleDelete = async (id) => {
+  const confirmed = window.confirm(
+    "Are you sure you want to delete this product?"
+  );
 
- const handleAddProduct = () => {
+  if (!confirmed) return;
+
+  try {
+    await deleteProduct(id);
+    await fetchProducts();
+  } catch (err) {
+    alert(
+      err.response?.data?.message ||
+        "Failed to delete product. Please try again."
+    );
+  }
+};
+
+
+const handleAddProduct = () => {
+  setSelectedProduct(null);
   setShowAddForm(true);
 };
 
 const handleProductAdded = async () => {
-  setShowAddForm(false);
   await fetchProducts();
+  setShowAddForm(false);
+  setSelectedProduct(null);
 };
 
   return (
     <div className="farmer-dashboard">
-      <Sidebar />
+      <Sidebar onAddProduct={handleAddProduct} />
 
       <main className="main-content">
         <Header />
-        {showAddForm && (
+       {showAddForm ? (
   <AddProduct
+    product={selectedProduct}
     onProductAdded={handleProductAdded}
-    onCancel={() => setShowAddForm(false)}
+    onCancel={() => {
+      setShowAddForm(false);
+      setSelectedProduct(null);
+    }}
   />
-)}
+) : (
+  <>
+  
 
         <section className="welcome-section" id="dashboard">
           <div>
@@ -184,9 +211,12 @@ const handleProductAdded = async () => {
         <footer className="dashboard-footer">
           © 2026 GoviMart. Connecting farmers and consumers.
         </footer>
+        </>
+)}
+
       </main>
     </div>
   );
 }
-
+  
 export default FarmerDashboard;
