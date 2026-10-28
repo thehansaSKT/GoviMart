@@ -5,15 +5,27 @@ import {
 } from "../../services/productService";
 import "../../App.css";
 
+const districts = [
+  "Colombo", "Gampaha", "Kalutara", "Kandy",
+  "Matale", "Nuwara Eliya", "Galle", "Matara",
+  "Hambantota", "Jaffna", "Kilinochchi", "Mannar",
+  "Vavuniya", "Mullaitivu", "Batticaloa", "Ampara",
+  "Trincomalee", "Kurunegala", "Puttalam",
+  "Anuradhapura", "Polonnaruwa", "Badulla",
+  "Monaragala", "Ratnapura", "Kegalle",
+];
+
 function AddProduct({ product = null, onProductAdded, onCancel }) {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     category: "Vegetables",
     price: "",
+    initialStock: "",
     quantity: "",
     unit: "kg",
     imageUrl: "",
+    district: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -28,9 +40,11 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
         description: product.description || "",
         category: product.category || "Vegetables",
         price: product.price ?? "",
+        initialStock: product.initialStock ?? product.quantity ?? "",
         quantity: product.quantity ?? "",
         unit: product.unit || "kg",
         imageUrl: product.imageUrl || "",
+        district: product.district || "",
       });
     } else {
       setFormData({
@@ -38,9 +52,11 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
         description: "",
         category: "Vegetables",
         price: "",
+        initialStock: "",
         quantity: "",
         unit: "kg",
         imageUrl: "",
+        district: "",
       });
     }
 
@@ -50,10 +66,15 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
   const handleChange = (event) => {
     const { name, value } = event.target;
 
-    setFormData((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+    setFormData((previous) => {
+      const next = { ...previous, [name]: value };
+
+      if (name === "initialStock" && !isEditing) {
+        next.quantity = value;
+      }
+
+      return next;
+    });
   };
 
   const handleSubmit = async (event) => {
@@ -64,20 +85,30 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
       !formData.name.trim() ||
       !formData.description.trim() ||
       formData.price === "" ||
-      formData.quantity === ""
+      formData.initialStock === "" ||
+      formData.quantity === "" ||
+      !formData.district
     ) {
       setError("Please complete all required fields.");
       return;
     }
 
+    const price = Number(formData.price);
+    const initialStock = Number(formData.initialStock);
+    const quantity = Number(formData.quantity);
+
     if (
-      !Number.isFinite(Number(formData.price)) ||
-      Number(formData.price) <= 0 ||
-      !Number.isFinite(Number(formData.quantity)) ||
-      Number(formData.quantity) < 0
+      !Number.isFinite(price) ||
+      price <= 0 ||
+      !Number.isFinite(initialStock) ||
+      initialStock < 0 ||
+      !Number.isFinite(quantity) ||
+      quantity < 0 ||
+      (!isEditing && quantity !== initialStock) ||
+      quantity > initialStock
     ) {
       setError(
-        "Enter a valid price greater than zero and a non-negative quantity."
+        "Enter a valid price and stock. Available stock cannot exceed initial stock."
       );
       return;
     }
@@ -85,18 +116,41 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
     try {
       setLoading(true);
 
+     const storedUser = JSON.parse(
+  localStorage.getItem("user") || "null"
+);
+
+const farmerId =
+  localStorage.getItem("farmerId") ||
+  storedUser?._id ||
+  storedUser?.id;
+
+if (!isEditing && !farmerId) {
+  setError(
+    "Farmer ID is missing. Please sign in again."
+  );
+  return;
+}
+
       const productData = {
-        ...formData,
         name: formData.name.trim(),
         description: formData.description.trim(),
-        price: Number(formData.price),
-        quantity: Number(formData.quantity),
+        category: formData.category,
+        price,
+        initialStock,
+        quantity,
+        unit: formData.unit,
+        imageUrl: formData.imageUrl.trim(),
+        district: formData.district,
       };
 
       if (isEditing) {
         await updateProduct(product._id, productData);
       } else {
-        await addProduct(productData);
+        await addProduct({
+          ...productData,
+          farmerId,
+        });
       }
 
       await onProductAdded();
@@ -121,8 +175,6 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
               : "List your fresh farm products on GoviMart."}
           </p>
         </div>
-
-        
       </div>
 
       <form className="product-form" onSubmit={handleSubmit}>
@@ -183,6 +235,21 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
         </div>
 
         <div className="form-group">
+          <label htmlFor="product-initial-stock">Initial Stock *</label>
+          <input
+            id="product-initial-stock"
+            name="initialStock"
+            type="number"
+            min="0"
+            step="any"
+            value={formData.initialStock}
+            onChange={handleChange}
+            required
+            disabled={isEditing}
+          />
+        </div>
+
+        <div className="form-group">
           <label htmlFor="product-quantity">Available Quantity *</label>
           <input
             id="product-quantity"
@@ -193,6 +260,7 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
             value={formData.quantity}
             onChange={handleChange}
             required
+            disabled={!isEditing}
           />
         </div>
 
@@ -209,6 +277,24 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
             <option value="g">Gram (g)</option>
             <option value="piece">Piece</option>
             <option value="litre">Litre</option>
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="district">District *</label>
+          <select
+            id="district"
+            name="district"
+            value={formData.district}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Select district</option>
+            {districts.map((district) => (
+              <option key={district} value={district}>
+                {district}
+              </option>
+            ))}
           </select>
         </div>
 

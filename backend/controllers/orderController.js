@@ -2,7 +2,11 @@ const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 
+
+
 const createOrder = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     const {
       customer,
@@ -32,7 +36,7 @@ const createOrder = async (req, res) => {
       });
     }
 
-    const normalizedItems = new Map();
+    const quantities = new Map();
 
     for (const item of items) {
       if (
@@ -45,72 +49,101 @@ const createOrder = async (req, res) => {
         });
       }
 
-      const id = String(item.productId);
-      normalizedItems.set(
-        id,
-        (normalizedItems.get(id) || 0) + item.quantity
+      const productId = String(item.productId);
+
+      quantities.set(
+        productId,
+        (quantities.get(productId) || 0) + item.quantity
       );
     }
 
-    const products = await Product.find({
-      _id: { $in: [...normalizedItems.keys()] },
+    let createdOrder;
+
+    await session.withTransaction(async () => {
+      const orderItems = [];
+
+      for (const [productId, quantity] of quantities) {
+        const product = await Product.findOneAndUpdate(
+          {
+            _id: productId,
+            quantity: { $gte: quantity },
+          },
+          {
+            $inc: { quantity: -quantity },
+          },
+          {
+            new: true,
+            session,
+          }
+        );
+
+        if (!product) {
+          const existingProduct = await Product.findById(productId)
+            .session(session);
+
+          if (!existingProduct) {
+            throw new Error("PRODUCT_NOT_FOUND");
+          }
+
+          throw new Error(`INSUFFICIENT_STOCK:${existingProduct.name}`);
+        }
+
+        orderItems.push({
+          productId: product._id,
+          name: product.name,
+          price: product.price,
+          quantity,
+          unit: product.unit,
+        });
+      }
+
+      const subtotal = orderItems.reduce(
+        (total, item) => total + item.price * item.quantity,
+        0
+      );
+
+      const deliveryFee = subtotal > 0 ? 250 : 0;
+
+      const orders = await Order.create(
+        [
+          {
+            orderNumber: `GOVI-${Date.now()}-${Math.floor(
+              Math.random() * 1000
+            )}`,
+            customer,
+            deliveryAddress,
+            items: orderItems,
+            subtotal,
+            deliveryFee,
+            total: subtotal + deliveryFee,
+            paymentMethod,
+            status: "Pending",
+          },
+        ],
+        { session }
+      );
+
+      createdOrder = orders[0];
     });
 
-    if (products.length !== normalizedItems.size) {
+    return res.status(201).json({
+      message: "Order placed successfully. Product stock updated.",
+      order: createdOrder,
+    });
+  } catch (error) {
+    console.error("Create order error:", error);
+
+    if (error.message === "PRODUCT_NOT_FOUND") {
       return res.status(400).json({
         message: "One or more products no longer exist.",
       });
     }
 
-    const orderItems = [];
-
-    for (const product of products) {
-      const quantity = normalizedItems.get(
-        String(product._id)
-      );
-
-      if (product.quantity < quantity) {
-        return res.status(400).json({
-          message: `Insufficient stock for ${product.name}.`,
-        });
-      }
-
-      orderItems.push({
-        productId: product._id,
-        name: product.name,
-        price: product.price,
-        quantity,
-        unit: product.unit,
+    if (error.message.startsWith("INSUFFICIENT_STOCK:")) {
+      return res.status(400).json({
+        message: `Insufficient stock for ${error.message.split(":")[1]}.`,
       });
     }
-
-    const subtotal = orderItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-
-    const deliveryFee = subtotal > 0 ? 250 : 0;
-
-    const order = await Order.create({
-      orderNumber: `GOVI-${Date.now()}-${Math.floor(
-        Math.random() * 1000
-      )}`,
-      customer,
-      deliveryAddress,
-      items: orderItems,
-      subtotal,
-      deliveryFee,
-      total: subtotal + deliveryFee,
-      paymentMethod,
-      status: "Pending",
-    });
-
-    return res.status(201).json({
-      message: "Order placed successfully.",
-      order,
-    });
-  } catch (error) {
-    console.error("Create order error:", error);
 
     if (error.name === "ValidationError") {
       return res.status(400).json({
@@ -121,8 +154,12 @@ const createOrder = async (req, res) => {
     return res.status(500).json({
       message: "Unable to place order.",
     });
+  } finally {
+    await session.endSession();
   }
 };
+
+
 
 const getAllOrders = async (req, res) => {
   try {

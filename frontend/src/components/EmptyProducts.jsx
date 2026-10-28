@@ -2,7 +2,7 @@ function EmptyProducts({ onAddProduct }) {
   return (
     <div className="empty-state">
       <img
-        src="/empty-products.png"
+        src="/empty-products.jpg"
         alt="No products available"
         className="empty-icon"
       />

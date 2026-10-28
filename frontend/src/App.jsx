@@ -16,6 +16,8 @@ import ConsumerHome from "./pages/consumer/ConsumerHome";
 import ConsumerProducts from "./pages/consumer/ConsumerProducts";
 import ConsumerCart from "./pages/consumer/ConsumerCart";
 import ConsumerCheckout from "./pages/consumer/ConsumerCheckout";
+import ConsumerOrders from "./pages/consumer/ConsumerOrders";
+import ConsumerOrderSuccess from "./pages/consumer/ConsumerOrderSuccess";
 
 function App() {
   return (
@@ -62,6 +64,14 @@ function App() {
         <Route
   path="/consumer/checkout"
   element={<ConsumerCheckout />}
+/>
+<Route
+  path="/consumer/orders"
+  element={<ConsumerOrders />}
+/>
+<Route
+  path="/consumer/order-success"
+  element={<ConsumerOrderSuccess />}
 />
       </Routes>
     </BrowserRouter>

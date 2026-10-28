@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { getAllProducts } from "../../services/productService";
+import ConsumerSidebar from "../../components/consumer/ConsumerSidebar";
 import "./Consumer.css";
 
 function ConsumerHome() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [products, setProducts] = useState([]);
   const [cartCount, setCartCount] = useState(0);
@@ -48,16 +48,17 @@ function ConsumerHome() {
         localStorage.getItem("govimartProfile") || "null"
       );
 
-      if (profile?.name) {
-        setConsumerName(profile.name);
-      } else {
-        setConsumerName("Consumer");
-      }
+      setConsumerName(profile?.name || "Consumer");
     } catch (error) {
-      console.error("Unable to load dashboard information:", error);
+      console.error(
+        "Unable to load dashboard information:",
+        error
+      );
+
       setCartCount(0);
       setOrderCount(0);
       setTotalSpent(0);
+      setConsumerName("Consumer");
     }
   };
 
@@ -70,7 +71,9 @@ function ConsumerHome() {
 
         if (mounted) {
           setProducts(
-            Array.isArray(result.products) ? result.products : []
+            Array.isArray(result.products)
+              ? result.products
+              : []
           );
         }
       } catch (error) {
@@ -96,106 +99,47 @@ function ConsumerHome() {
 
   useEffect(() => {
     refreshDashboard();
-  }, [location.pathname]);
+  }, []);
 
   useEffect(() => {
-    const handleCartUpdate = () => refreshDashboard();
+    const handleDashboardUpdate = () => refreshDashboard();
 
-    window.addEventListener("storage", handleCartUpdate);
+    window.addEventListener("storage", handleDashboardUpdate);
     window.addEventListener(
       "govimart-profile-updated",
-      handleCartUpdate
+      handleDashboardUpdate
+    );
+    window.addEventListener(
+      "govimart-cart-updated",
+      handleDashboardUpdate
     );
 
     return () => {
-      window.removeEventListener("storage", handleCartUpdate);
+      window.removeEventListener(
+        "storage",
+        handleDashboardUpdate
+      );
       window.removeEventListener(
         "govimart-profile-updated",
-        handleCartUpdate
+        handleDashboardUpdate
+      );
+      window.removeEventListener(
+        "govimart-cart-updated",
+        handleDashboardUpdate
       );
     };
   }, []);
 
-  const firstName = consumerName.trim().split(/\s+/)[0] || "Consumer";
-
   return (
     <div className="consumer-dashboard">
-     
-      <aside className="consumer-sidebar">
-  <div className="consumer-sidebar-brand">
-    <img
-      src="/govimart-logo.png"
-      alt="GoviMart Logo"
-      className="consumer-sidebar-logo"
-    />
-    <span>GoviMart</span>
-  </div>
-
-  <p className="consumer-sidebar-label">CONSUMER MENU</p>
-
-  <nav className="consumer-sidebar-nav">
-    <button
-      type="button"
-      className="consumer-sidebar-link active"
-      onClick={() => navigate("/consumer")}
-    >
-      <span className="consumer-nav-icon">▦</span>
-      <span>Dashboard</span>
-    </button>
-
-    <button
-      type="button"
-      className="consumer-sidebar-link"
-      onClick={() => navigate("/consumer/products")}
-    >
-      <span className="consumer-nav-icon">▣</span>
-      <span>Browse Products</span>
-    </button>
-
-    <button
-      type="button"
-      className="consumer-sidebar-link"
-      onClick={() => navigate("/consumer/cart")}
-    >
-      <span className="consumer-nav-icon">🛒</span>
-      <span>My Cart</span>
-      {cartCount > 0 && (
-        <span className="consumer-sidebar-badge">{cartCount}</span>
-      )}
-    </button>
-
-    <button
-      type="button"
-      className="consumer-sidebar-link"
-      onClick={() => navigate("/consumer/orders")}
-    >
-      <span className="consumer-nav-icon">▤</span>
-      <span>My Orders</span>
-    </button>
-
-    <button
-      type="button"
-      className="consumer-sidebar-link"
-      onClick={() => navigate("/consumer/profile")}
-    >
-      <span className="consumer-nav-icon">◎</span>
-      <span>My Profile</span>
-    </button>
-  </nav>
-
-  <div className="consumer-sidebar-image">
-    <img
-      src="/govimart-consumer-sidebar.png"
-      alt="Woman shopping for fresh farm produce"
-    />
-  </div>
-</aside>
+      <ConsumerSidebar />
 
       <main className="consumer-dashboard-main">
-       
         <header className="consumer-dashboard-header">
           <div>
-            <p className="consumer-eyebrow">CONSUMER PORTAL</p>
+            <p className="consumer-eyebrow">
+              CONSUMER PORTAL
+            </p>
             <h1>Dashboard</h1>
           </div>
 
@@ -229,7 +173,9 @@ function ConsumerHome() {
             <button
               type="button"
               className="consumer-dashboard-primary"
-              onClick={() => navigate("/consumer/products")}
+              onClick={() =>
+                navigate("/consumer/products")
+              }
             >
               Browse Products →
             </button>
@@ -238,12 +184,11 @@ function ConsumerHome() {
           <div className="consumer-dashboard-hero-art">
             <img
               src="/govimart-consumer.png"
-              alt="Farmer offering fresh farm products"
+              alt="Consumer shopping for fresh farm products"
               onError={(event) => {
                 event.currentTarget.style.display = "none";
               }}
             />
-
           </div>
         </section>
 
@@ -253,9 +198,13 @@ function ConsumerHome() {
               <button
                 type="button"
                 className="consumer-action-card"
-                onClick={() => navigate("/consumer/products")}
+                onClick={() =>
+                  navigate("/consumer/products")
+                }
               >
-                <span className="consumer-action-icon">🔎</span>
+                <span className="consumer-action-icon">
+                  🔎
+                </span>
                 <strong>Browse Products</strong>
                 <span>
                   Discover fresh farm produce.
@@ -266,9 +215,13 @@ function ConsumerHome() {
               <button
                 type="button"
                 className="consumer-action-card"
-                onClick={() => navigate("/consumer/cart")}
+                onClick={() =>
+                  navigate("/consumer/cart")
+                }
               >
-                <span className="consumer-action-icon">🛒</span>
+                <span className="consumer-action-icon">
+                  🛒
+                </span>
                 <strong>Shopping Cart</strong>
                 <span>
                   Review your selected products.
@@ -279,9 +232,13 @@ function ConsumerHome() {
               <button
                 type="button"
                 className="consumer-action-card"
-                onClick={() => navigate("/consumer/orders")}
+                onClick={() =>
+                  navigate("/consumer/orders")
+                }
               >
-                <span className="consumer-action-icon">📦</span>
+                <span className="consumer-action-icon">
+                  📦
+                </span>
                 <strong>Track Orders</strong>
                 <span>
                   Check your order information.
@@ -290,9 +247,7 @@ function ConsumerHome() {
               </button>
             </div>
           </div>
-
         </section>
-
       </main>
     </div>
   );

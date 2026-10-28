@@ -65,6 +65,13 @@ const productSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    district: {
+  type: String,
+  required: [true, "Farmer district is required"],
+  trim: true,
+  maxlength: 100,
+},
+
   },
   {
     timestamps: true,

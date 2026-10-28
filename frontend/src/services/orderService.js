@@ -1,11 +1,19 @@
-
 import axios from "axios";
 
 const API_URL = "http://localhost:5000/api/orders";
 
 export const createOrder = async (orderData) => {
-  const response = await axios.post(API_URL, orderData);
-  return response.data;
+  try {
+    const response = await axios.post(API_URL, orderData);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Order error response:",
+      error.response?.data || error.message
+    );
+    console.error("Submitted order data:", orderData);
+    throw error;
+  }
 };
 
 export const getAllOrders = async () => {
