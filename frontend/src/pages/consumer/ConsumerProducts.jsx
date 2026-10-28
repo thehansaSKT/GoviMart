@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getAllProducts } from "../../services/productService";
+import { getCart, saveCart } from "../../services/cartService";
 import ConsumerSidebar from "../../components/consumer/ConsumerSidebar";
 import "./Consumer.css";
 
 const categories = ["All", "Vegetables", "Fruits", "Grains", "Other"];
 
 function ConsumerProducts() {
+  const navigate = useNavigate();
+
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -14,26 +18,25 @@ function ConsumerProducts() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [quantities, setQuantities] = useState({});
-
   const [cartCount, setCartCount] = useState(0);
 
   const refreshCartCount = () => {
-    try {
-      const cart = JSON.parse(
-        localStorage.getItem("govimartCart") || "[]"
-      );
+    const token = sessionStorage.getItem("goviToken");
+    const user = sessionStorage.getItem("goviUser");
 
-      const validCart = Array.isArray(cart) ? cart : [];
-
-      setCartCount(
-        validCart.reduce(
-          (total, item) => total + Number(item.quantity || 0),
-          0
-        )
-      );
-    } catch {
+    if (!token || !user) {
       setCartCount(0);
+      return;
     }
+
+    const cart = getCart();
+
+    setCartCount(
+      cart.reduce(
+        (total, item) => total + Number(item.quantity || 0),
+        0
+      )
+    );
   };
 
   useEffect(() => {
@@ -118,51 +121,92 @@ function ConsumerProducts() {
   }, [products, search, category, location]);
 
   const addToCart = (product, selectedQuantity) => {
-  const quantity = Number(selectedQuantity);
-  const availableQuantity = Number(product.quantity);
+    const token = sessionStorage.getItem("goviToken");
+    const storedUser = sessionStorage.getItem("goviUser");
 
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    alert("Please select a valid quantity.");
-    return;
-  }
-
-  if (quantity > availableQuantity) {
-    alert(`Only ${availableQuantity} ${product.unit} available.`);
-    return;
-  }
-
-  const cart = JSON.parse(localStorage.getItem("govimartCart") || "[]");
-  const productId = product._id || product.id;
-
-  const existingItem = cart.find(
-    (item) => String(item.productId) === String(productId)
-  );
-
-  if (existingItem) {
-    const newQuantity = Number(existingItem.quantity) + quantity;
-
-    if (newQuantity > availableQuantity) {
-      alert(`Only ${availableQuantity} ${product.unit} available in total.`);
+    if (!token || !storedUser) {
+      alert("Please log in to add products to your cart.");
+      navigate("/login/consumer");
       return;
     }
 
-    existingItem.quantity = newQuantity;
-  } else {
-    cart.push({
-      productId,
-      name: product.name,
-      price: Number(product.price),
-      unit: product.unit,
-      imageUrl: product.imageUrl,
-      quantity,
-    });
-  }
+    let user;
 
-  localStorage.setItem("govimartCart", JSON.stringify(cart));
-  window.dispatchEvent(new Event("govimart-cart-updated"));
+    try {
+      user = JSON.parse(storedUser);
+    } catch {
+      alert("Your login session is invalid. Please log in again.");
+      navigate("/login/consumer");
+      return;
+    }
 
-  alert(`${quantity} ${product.unit} of ${product.name} added to cart.`);
-};
+    if (user?.role !== "consumer" || !user?._id) {
+      alert("Please log in with a consumer account to shop.");
+      return;
+    }
+
+    const quantity = Number(selectedQuantity);
+    const availableQuantity = Number(product.quantity);
+    const productId = String(product._id || product.id);
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      alert("Please select a valid quantity.");
+      return;
+    }
+
+    if (quantity > availableQuantity) {
+      alert(`Only ${availableQuantity} ${product.unit} available.`);
+      return;
+    }
+
+    const cart = getCart();
+
+    const existingItem = cart.find(
+      (item) => String(item.productId) === productId
+    );
+
+    if (existingItem) {
+      const newQuantity = Number(existingItem.quantity) + quantity;
+
+      if (newQuantity > availableQuantity) {
+        alert(
+          `Only ${availableQuantity} ${product.unit} available in total.`
+        );
+        return;
+      }
+
+      const updatedCart = cart.map((item) =>
+        String(item.productId) === productId
+          ? { ...item, quantity: newQuantity }
+          : item
+      );
+
+      saveCart(updatedCart);
+    } else {
+      const updatedCart = [
+        ...cart,
+        {
+          productId,
+          name: product.name,
+          price: Number(product.price),
+          unit: product.unit,
+          imageUrl: product.imageUrl,
+          quantity,
+          district: product.district,
+          farmerId: product.farmerId?._id || product.farmerId || null,
+          farmerName:
+            product.farmerId?.farmName ||
+            product.farmerId?.name ||
+            "Farmer",
+        },
+      ];
+
+      saveCart(updatedCart);
+    }
+
+    refreshCartCount();
+    setMessage(`${product.name} added to your personal cart.`);
+  };
 
   const clearFilters = () => {
     setSearch("");
@@ -186,7 +230,21 @@ function ConsumerProducts() {
             <p className="consumer-eyebrow">CONSUMER PORTAL</p>
             <h1>Browse Products</h1>
           </div>
+
         </header>
+
+        {message && (
+          <div className="consumer-products-message" role="status">
+            <span>{message}</span>
+            <button
+              type="button"
+              onClick={() => setMessage("")}
+              aria-label="Dismiss message"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         <section className="consumer-products-toolbar">
           <label className="consumer-products-search">
@@ -213,7 +271,7 @@ function ConsumerProducts() {
               ))}
             </select>
           </label>
-           
+
           <label className="consumer-products-category-label">
             <span>Farmer District</span>
             <select
@@ -221,7 +279,6 @@ function ConsumerProducts() {
               onChange={(event) => setLocation(event.target.value)}
             >
               <option value="All">All districts</option>
-
               {locations.map((district) => (
                 <option key={district} value={district}>
                   {district}
@@ -231,29 +288,11 @@ function ConsumerProducts() {
           </label>
         </section>
 
-        {message && (
-          <div
-            className="consumer-products-message"
-            role="status"
-          >
-            <span>{message}</span>
-            <button
-              type="button"
-              onClick={() => setMessage("")}
-              aria-label="Dismiss message"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
         <div className="consumer-products-results">
           <h2>Available Products</h2>
           <span>
             {filteredProducts.length}{" "}
-            {filteredProducts.length === 1
-              ? "product"
-              : "products"}
+            {filteredProducts.length === 1 ? "product" : "products"}
           </span>
         </div>
 
@@ -275,9 +314,7 @@ function ConsumerProducts() {
           <div className="consumer-products-state">
             <span>🔎</span>
             <h3>No products found</h3>
-            <p>
-              Try another search, category or district.
-            </p>
+            <p>Try another search, category or district.</p>
             <button type="button" onClick={clearFilters}>
               Clear Filters
             </button>
@@ -286,15 +323,13 @@ function ConsumerProducts() {
           <section className="consumer-products-grid">
             {filteredProducts.map((product) => {
               const stock = Number(product.quantity || 0);
-              const farmerDistrict =
-                product.district?.trim() || "";
+              const farmerDistrict = product.district?.trim() || "";
 
               return (
                 <article
                   className="consumer-product-card"
                   key={product._id}
                 >
-                
                   <div className="consumer-product-details">
                     <span className="consumer-product-category">
                       {product.category}
@@ -303,28 +338,26 @@ function ConsumerProducts() {
                     <h3>{product.name}</h3>
 
                     <p className="consumer-product-description">
-                      {product.description ||
-                        "Fresh farm produce."}
+                      {product.description || "Fresh farm produce."}
                     </p>
+
                     <div className="consumer-product-farmer">
-  <span>👨‍🌾</span>
-  <span>
-    Farmer:{" "}
-    {product.farmerId?.farmName ||
-      product.farmerId?.name ||
-      "Farmer information unavailable"}
-  </span>
-</div>
+                      <span>👨‍🌾</span>
+                      <span>
+                        Farm:{" "}
+                        {product.farmerId?.farmName ||
+                          product.farmerId?.name ||
+                          "Farmer information unavailable"}
+                      </span>
+                    </div>
+
                     <p className="consumer-product-location">
-                      <span aria-hidden="true">📍</span>
-                      {farmerDistrict ||
-                        "District not provided"}
+                      <span aria-hidden="true">📍</span>{" "}
+                      {farmerDistrict || "District not provided"}
                     </p>
 
                     <div className="consumer-product-price">
-                      <strong>
-                        Rs. {formatPrice(product.price)}
-                      </strong>
+                      <strong>Rs. {formatPrice(product.price)}</strong>
                       <span>/ {product.unit || "kg"}</span>
                     </div>
 
@@ -339,79 +372,92 @@ function ConsumerProducts() {
                         ? `${stock} ${product.unit || "units"} available`
                         : "Out of stock"}
                     </p>
+
                     <div className="consumer-quantity-selector">
-  <label htmlFor={`quantity-${product._id}`}>
-    Quantity ({product.unit})
-  </label>
+                      <label htmlFor={`quantity-${product._id}`}>
+                        Quantity ({product.unit})
+                      </label>
 
-  <div className="consumer-quantity-controls">
-    <button
-      type="button"
-      onClick={() =>
-        setQuantities((prev) => ({
-          ...prev,
-          [product._id]: Math.max(
-            1,
-            Number(prev[product._id] || 1) - 1
-          ),
-        }))
-      }
-    >
-      −
-    </button>
+                      <div className="consumer-quantity-controls">
+                        <button
+                          type="button"
+                          disabled={
+                            stock < 1 ||
+                            Number(quantities[product._id] ?? 1) <= 1
+                          }
+                          onClick={() =>
+                            setQuantities((prev) => ({
+                              ...prev,
+                              [product._id]: Math.max(
+                                1,
+                                Number(prev[product._id] ?? 1) - 1
+                              ),
+                            }))
+                          }
+                        >
+                          −
+                        </button>
 
-    <input
-      id={`quantity-${product._id}`}
-      type="number"
-      min="1"
-      max={product.quantity}
-      step="1"
-      value={quantities[product._id] ?? 1}
-      onChange={(e) =>
-        setQuantities((prev) => ({
-          ...prev,
-          [product._id]: e.target.value,
-        }))
-      }
-    />
+                        <input
+                          id={`quantity-${product._id}`}
+                          type="number"
+                          min="1"
+                          max={stock}
+                          step="1"
+                          value={quantities[product._id] ?? 1}
+                          onChange={(event) =>
+                            setQuantities((prev) => ({
+                              ...prev,
+                              [product._id]: event.target.value,
+                            }))
+                          }
+                        />
 
-    <button
-      type="button"
-      disabled={
-        Number(quantities[product._id] ?? 1) >=
-        Number(product.quantity)
-      }
-      onClick={() =>
-        setQuantities((prev) => ({
-          ...prev,
-          [product._id]: Math.min(
-            Number(product.quantity),
-            Number(prev[product._id] || 1) + 1
-          ),
-        }))
-      }
-    >
-      +
-    </button>
-  </div>
+                        <button
+                          type="button"
+                          disabled={
+                            stock < 1 ||
+                            Number(quantities[product._id] ?? 1) >= stock
+                          }
+                          onClick={() =>
+                            setQuantities((prev) => ({
+                              ...prev,
+                              [product._id]: Math.min(
+                                stock,
+                                Number(prev[product._id] ?? 1) + 1
+                              ),
+                            }))
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
 
-  <p>
-    Total: Rs.{" "}
-    {(
-      Number(product.price) *
-      Math.max(0, Number(quantities[product._id] ?? 1) || 0)
-    ).toFixed(2)}
-  </p>
-</div>
+                      <p>
+                        Total: Rs.{" "}
+                        {(
+                          Number(product.price) *
+                          Math.max(
+                            0,
+                            Number(quantities[product._id] ?? 1) || 0
+                          )
+                        ).toFixed(2)}
+                      </p>
+                    </div>
 
-<button
-  className="consumer-product-add-button"
-  onClick={() =>
-    addToCart(product, quantities[product._id] ?? 1)
-  }
->
-  + Add to Cart
-</button>
+                    <button
+                      type="button"
+                      className="consumer-product-add-button"
+                      disabled={stock < 1}
+                      onClick={() =>
+                        addToCart(
+                          product,
+                          quantities[product._id] ?? 1
+                        )
+                      }
+                    >
+                      + Add to Cart
+                    </button>
                   </div>
                 </article>
               );

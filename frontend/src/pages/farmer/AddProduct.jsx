@@ -15,19 +15,20 @@ const districts = [
   "Monaragala", "Ratnapura", "Kegalle",
 ];
 
-function AddProduct({ product = null, onProductAdded, onCancel }) {
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    category: "Vegetables",
-    price: "",
-    initialStock: "",
-    quantity: "",
-    unit: "kg",
-    imageUrl: "",
-    district: "",
-  });
+const initialForm = {
+  name: "",
+  description: "",
+  category: "Vegetables",
+  price: "",
+  initialStock: "",
+  quantity: "",
+  unit: "kg",
+  imageUrl: "",
+  district: "",
+};
 
+function AddProduct({ product = null, onProductAdded, onCancel }) {
+  const [formData, setFormData] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,17 +48,7 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
         district: product.district || "",
       });
     } else {
-      setFormData({
-        name: "",
-        description: "",
-        category: "Vegetables",
-        price: "",
-        initialStock: "",
-        quantity: "",
-        unit: "kg",
-        imageUrl: "",
-        district: "",
-      });
+      setFormData({ ...initialForm });
     }
 
     setError("");
@@ -80,6 +71,12 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    const token = sessionStorage.getItem("goviToken");
+
+    if (!token) {
+      setError("Your session has expired. Please sign in again.");
+      return;
+    }
 
     if (
       !formData.name.trim() ||
@@ -113,52 +110,47 @@ function AddProduct({ product = null, onProductAdded, onCancel }) {
       return;
     }
 
+    const productData = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      category: formData.category,
+      price,
+      initialStock,
+      quantity,
+      unit: formData.unit,
+      imageUrl: formData.imageUrl.trim(),
+      district: formData.district,
+    };
+
     try {
       setLoading(true);
-
-     const storedUser = JSON.parse(
-  localStorage.getItem("user") || "null"
-);
-
-const farmerId =
-  localStorage.getItem("farmerId") ||
-  storedUser?._id ||
-  storedUser?.id;
-
-if (!isEditing && !farmerId) {
-  setError(
-    "Farmer ID is missing. Please sign in again."
-  );
-  return;
-}
-
-      const productData = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        category: formData.category,
-        price,
-        initialStock,
-        quantity,
-        unit: formData.unit,
-        imageUrl: formData.imageUrl.trim(),
-        district: formData.district,
-      };
 
       if (isEditing) {
         await updateProduct(product._id, productData);
       } else {
-        await addProduct({
-          ...productData,
-          farmerId,
-        });
+    
+        await addProduct(productData);
       }
 
-      await onProductAdded();
+      if (onProductAdded) {
+        await onProductAdded();
+      }
     } catch (err) {
-      setError(
+      console.error("Product save error:", err);
+
+      const status = err.response?.status;
+      const message =
         err.response?.data?.message ||
-          `Failed to ${isEditing ? "update" : "add"} product. Please try again.`
-      );
+        err.message ||
+        `Failed to ${isEditing ? "update" : "add"} product.`;
+
+      if (status === 401) {
+        setError("Your session has expired. Please sign in again.");
+      } else if (status === 403) {
+        setError("Only an authenticated farmer can manage farm products.");
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }

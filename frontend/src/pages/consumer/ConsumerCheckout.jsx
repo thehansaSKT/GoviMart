@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createOrder } from "../../services/orderService";
+import {
+  getCart,
+  clearCart,
+} from "../../services/cartService";
+import { getMyProfile } from "../../services/authService";
 import ConsumerSidebar from "../../components/consumer/ConsumerSidebar";
 import "./Consumer.css";
 
@@ -47,41 +52,76 @@ function ConsumerCheckout() {
 
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    try {
-      const savedCart = JSON.parse(
-        localStorage.getItem("govimartCart") || "[]"
-      );
+    let active = true;
 
-      setCart(Array.isArray(savedCart) ? savedCart : []);
+    const loadCheckoutData = async () => {
+      try {
+        const token = sessionStorage.getItem("goviToken");
+        const storedUser = JSON.parse(
+          sessionStorage.getItem("goviUser") || "null"
+        );
 
-      const profile = JSON.parse(
-        localStorage.getItem("govimartProfile") || "{}"
-      );
+        if (!token || !storedUser?._id) {
+          navigate("/login/consumer", { replace: true });
+          return;
+        }
 
-      setFormData((previous) => ({
-        ...previous,
-        name: profile.name || previous.name,
-        phone: profile.phone || previous.phone,
-        address: profile.address || previous.address,
-      }));
-    } catch (error) {
-      console.error("Unable to load checkout information:", error);
-      setCart([]);
-      setErrorMessage(
-        "Unable to load your cart. Please refresh and try again."
-      );
-    }
-  }, []);
+        if (storedUser.role !== "consumer") {
+          setErrorMessage("Please log in with a consumer account.");
+          return;
+        }
+
+        setCart(getCart());
+
+        const profile = await getMyProfile();
+
+        if (!active) return;
+
+        if (profile.role !== "consumer") {
+          setErrorMessage("Only consumer accounts can place orders.");
+          return;
+        }
+
+        setFormData((previous) => ({
+          ...previous,
+          name: profile.name || "",
+          phone: profile.phone || "",
+          address: profile.address || "",
+          district: districts.includes(profile.district)
+            ? profile.district
+            : "",
+          city: "",
+        }));
+      } catch (error) {
+        if (active) {
+          setErrorMessage(
+            error.message ||
+              "Unable to load your profile. Please log in again."
+          );
+        }
+      } finally {
+        if (active) {
+          setLoadingProfile(false);
+        }
+      }
+    };
+
+    loadCheckoutData();
+
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
 
   const subtotal = useMemo(
     () =>
       cart.reduce(
         (sum, item) =>
-          sum +
-          Number(item.price || 0) * Number(item.quantity || 0),
+          sum + Number(item.price || 0) * Number(item.quantity || 0),
         0
       ),
     [cart]
@@ -129,18 +169,16 @@ function ConsumerCheckout() {
       newErrors.city = "Enter your city or town.";
     }
 
+    if (cart.length === 0) {
+      setErrorMessage("Your cart is empty. Add products before checkout.");
+      return false;
+    }
+
     if (!formData.paymentMethod) {
       newErrors.paymentMethod = "Select a payment method.";
     }
 
     setErrors(newErrors);
-
-    if (cart.length === 0) {
-      setErrorMessage(
-        "Your cart is empty. Add products before checkout."
-      );
-      return false;
-    }
 
     return Object.keys(newErrors).length === 0;
   };
@@ -149,7 +187,37 @@ function ConsumerCheckout() {
     event.preventDefault();
     setErrorMessage("");
 
+    const token = sessionStorage.getItem("goviToken");
+    const storedUser = JSON.parse(
+      sessionStorage.getItem("goviUser") || "null"
+    );
+
+    if (!token || storedUser?.role !== "consumer") {
+      navigate("/login/consumer", { replace: true });
+      return;
+    }
+
     if (!validateForm()) return;
+
+    const cartDistricts = [
+      ...new Set(
+        cart
+          .map((item) => item.district?.trim().toLowerCase())
+          .filter(Boolean)
+      ),
+    ];
+
+    if (
+      cart.some((item) => !item.district?.trim()) ||
+      cartDistricts.some(
+        (district) => district !== formData.district.trim().toLowerCase()
+      )
+    ) {
+      setErrorMessage(
+        "Delivery is available within your district only. Please select products from the same district as your delivery address."
+      );
+      return;
+    }
 
     setSubmitting(true);
 
@@ -174,8 +242,8 @@ function ConsumerCheckout() {
       const result = await createOrder(orderData);
       const order = result.order || result;
 
-      localStorage.removeItem("govimartCart");
-      window.dispatchEvent(new Event("govimart-cart-updated"));
+      clearCart();
+      setCart([]);
 
       navigate("/consumer/order-success", {
         replace: true,
@@ -201,6 +269,17 @@ function ConsumerCheckout() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+
+  if (loadingProfile) {
+    return (
+      <div className="consumer-dashboard">
+        <ConsumerSidebar />
+        <main className="consumer-dashboard-main">
+          <p>Loading your checkout details...</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="consumer-dashboard">
@@ -233,9 +312,7 @@ function ConsumerCheckout() {
           <section className="consumer-cart-empty">
             <div className="consumer-cart-empty-icon">🛒</div>
             <h2>Your cart is empty</h2>
-            <p>
-              Add products to your cart before proceeding to checkout.
-            </p>
+            <p>Add products to your cart before proceeding to checkout.</p>
 
             <button
               type="button"
@@ -246,10 +323,7 @@ function ConsumerCheckout() {
             </button>
           </section>
         ) : (
-          <form
-            className="consumer-checkout-layout"
-            onSubmit={handleSubmit}
-          >
+          <form className="consumer-checkout-layout" onSubmit={handleSubmit}>
             <section className="consumer-checkout-form-panel">
               <div className="consumer-checkout-section-heading">
                 <span>01</span>
@@ -269,7 +343,6 @@ function ConsumerCheckout() {
                     autoComplete="name"
                     value={formData.name}
                     onChange={updateField}
-                    placeholder="Enter your full name"
                     required
                   />
                   {errors.name && (
@@ -305,7 +378,7 @@ function ConsumerCheckout() {
                 <span>02</span>
                 <div>
                   <h2>Delivery Address</h2>
-                  <p>Where should we deliver your products?</p>
+                  <p>Delivery is available within your district only.</p>
                 </div>
               </div>
 
@@ -394,21 +467,15 @@ function ConsumerCheckout() {
                     type="radio"
                     name="paymentMethod"
                     value="Cash on Delivery"
-                    checked={
-                      formData.paymentMethod === "Cash on Delivery"
-                    }
+                    checked={formData.paymentMethod === "Cash on Delivery"}
                     onChange={updateField}
                   />
-                  <span className="consumer-checkout-payment-icon">
-                    💵
-                  </span>
+                  <span className="consumer-checkout-payment-icon">💵</span>
                   <span>
                     <strong>Cash on Delivery</strong>
                     <small>Pay when your order arrives</small>
                   </span>
                 </label>
-
-                
               </div>
             </section>
 
@@ -430,7 +497,6 @@ function ConsumerCheckout() {
                         Qty: {item.quantity} {item.unit || "kg"}
                       </small>
                     </div>
-
                     <strong className="consumer-checkout-item-price">
                       {formatPrice(
                         Number(item.price) * Number(item.quantity)

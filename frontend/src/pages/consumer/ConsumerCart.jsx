@@ -3,6 +3,35 @@ import { useNavigate } from "react-router-dom";
 import ConsumerSidebar from "../../components/consumer/ConsumerSidebar";
 import "./Consumer.css";
 
+const getUserCartKey = () => {
+  try {
+    const user = JSON.parse(
+      sessionStorage.getItem("goviUser") || "null"
+    );
+
+    if (!user?._id) return null;
+
+    return `govimartCart_${user._id}`;
+  } catch {
+    return null;
+  }
+};
+
+
+const normalizeCart = (items) => {
+  if (!Array.isArray(items)) return [];
+
+  return items.map((item, index) => ({
+    ...item,
+    productId: String(item.productId || item._id || ""),
+    cartItemId:
+      item.cartItemId ||
+      `${item.productId || item._id || "item"}-${index}-${item.price ?? 0}`,
+    quantity: Math.max(0, Number(item.quantity) || 0),
+    price: Math.max(0, Number(item.price) || 0),
+  })).filter((item) => item.quantity > 0);
+};
+
 function ConsumerCart() {
   const navigate = useNavigate();
 
@@ -10,34 +39,60 @@ function ConsumerCart() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const token = sessionStorage.getItem("goviToken");
+    const cartKey = getUserCartKey();
+
+    if (!token || !cartKey) {
+      setCart([]);
+      setMessage("Please log in to view your personal cart.");
+      return;
+    }
+
     try {
       const savedCart = JSON.parse(
-        localStorage.getItem("govimartCart") || "[]"
+        localStorage.getItem(cartKey) || "[]"
       );
 
-      setCart(Array.isArray(savedCart) ? savedCart : []);
+      const normalizedCart = normalizeCart(savedCart);
+
+      setCart(normalizedCart);
+
+      localStorage.setItem(
+        cartKey,
+        JSON.stringify(normalizedCart)
+      );
     } catch {
       setCart([]);
+      setMessage("Unable to load your cart. Please try again.");
     }
   }, []);
 
   const saveCart = (updatedCart) => {
-    setCart(updatedCart);
+    const token = sessionStorage.getItem("goviToken");
+    const cartKey = getUserCartKey();
+
+    if (!token || !cartKey) {
+      setMessage("Please log in to manage your cart.");
+      return;
+    }
+
+    const normalizedCart = normalizeCart(updatedCart);
+
+
+    setCart(normalizedCart);
 
     localStorage.setItem(
-      "govimartCart",
-      JSON.stringify(updatedCart)
+      cartKey,
+      JSON.stringify(normalizedCart)
     );
 
-    window.dispatchEvent(
-      new Event("govimart-cart-updated")
-    );
+    window.dispatchEvent(new Event("govimart-cart-updated"));
   };
 
   const itemCount = useMemo(
     () =>
       cart.reduce(
-        (total, item) => total + Number(item.quantity || 0),
+        (total, item) => total + item.quantity,
         0
       ),
     [cart]
@@ -46,48 +101,39 @@ function ConsumerCart() {
   const subtotal = useMemo(
     () =>
       cart.reduce(
-        (total, item) =>
-          total +
-          Number(item.price || 0) *
-            Number(item.quantity || 0),
+        (total, item) => total + item.price * item.quantity,
         0
       ),
     [cart]
   );
 
-  const increaseQuantity = (productId) => {
-    const updatedCart = cart.map((item) => {
-      if (item.productId !== productId) return item;
-
-      return {
-        ...item,
-        quantity: Number(item.quantity || 0) + 1,
-      };
-    });
+  const increaseQuantity = (cartItemId) => {
+    const updatedCart = cart.map((item) =>
+      item.cartItemId === cartItemId
+        ? { ...item, quantity: item.quantity + 1 }
+        : item
+    );
 
     saveCart(updatedCart);
     setMessage("");
   };
 
-  const decreaseQuantity = (productId) => {
+  const decreaseQuantity = (cartItemId) => {
     const updatedCart = cart
-      .map((item) => {
-        if (item.productId !== productId) return item;
-
-        return {
-          ...item,
-          quantity: Number(item.quantity || 0) - 1,
-        };
-      })
-      .filter((item) => Number(item.quantity) > 0);
+      .map((item) =>
+        item.cartItemId === cartItemId
+          ? { ...item, quantity: item.quantity - 1 }
+          : item
+      )
+      .filter((item) => item.quantity > 0);
 
     saveCart(updatedCart);
     setMessage("");
   };
 
-  const removeItem = (productId) => {
+  const removeItem = (cartItemId) => {
     const updatedCart = cart.filter(
-      (item) => item.productId !== productId
+      (item) => item.cartItemId !== cartItemId
     );
 
     saveCart(updatedCart);
@@ -168,7 +214,7 @@ function ConsumerCart() {
               {cart.map((item) => (
                 <article
                   className="consumer-cart-item"
-                  key={item.productId}
+                  key={item.cartItemId}
                 >
                   <div className="consumer-cart-item-info">
                     <h3>{item.name}</h3>
@@ -182,7 +228,7 @@ function ConsumerCart() {
                     <button
                       type="button"
                       className="consumer-cart-remove-button"
-                      onClick={() => removeItem(item.productId)}
+                      onClick={() => removeItem(item.cartItemId)}
                     >
                       Remove
                     </button>
@@ -193,9 +239,7 @@ function ConsumerCart() {
                       <button
                         type="button"
                         aria-label={`Decrease ${item.name} quantity`}
-                        onClick={() =>
-                          decreaseQuantity(item.productId)
-                        }
+                        onClick={() => decreaseQuantity(item.cartItemId)}
                       >
                         −
                       </button>
@@ -205,19 +249,14 @@ function ConsumerCart() {
                       <button
                         type="button"
                         aria-label={`Increase ${item.name} quantity`}
-                        onClick={() =>
-                          increaseQuantity(item.productId)
-                        }
+                        onClick={() => increaseQuantity(item.cartItemId)}
                       >
                         +
                       </button>
                     </div>
 
                     <strong className="consumer-cart-line-total">
-                      {formatPrice(
-                        Number(item.price) *
-                          Number(item.quantity)
-                      )}
+                      {formatPrice(item.price * item.quantity)}
                     </strong>
                   </div>
                 </article>

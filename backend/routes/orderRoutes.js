@@ -8,9 +8,11 @@ const {
   updateOrderStatus,
 } = require("../controllers/orderController");
 
-router.post("/", createOrder);
-router.get("/", getAllOrders);
-router.get("/:id", getOrderById);
-router.patch("/:id/status", updateOrderStatus);
+const { authenticateToken } = require("../middleware/authMiddleware");
+
+router.post("/", authenticateToken, createOrder);
+router.get("/", authenticateToken, getAllOrders);
+router.get("/:id", authenticateToken, getOrderById);
+router.patch("/:id/status", authenticateToken, updateOrderStatus);
 
 module.exports = router;

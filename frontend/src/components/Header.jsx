@@ -1,44 +1,82 @@
 import { useEffect, useState } from "react";
-import { getProfile } from "../services/userService";
+import { getMyProfile } from "../services/authService";
 
-function Header() {
-  const [farmerName, setFarmerName] = useState("Farmer");
+function Header({ title = "Dashboard" }) {
+  const [farmerName, setFarmerName] = useState(() => {
+    try {
+      const user = JSON.parse(
+        sessionStorage.getItem("goviUser") || "null"
+      );
+
+      return user?.name || "Farmer";
+    } catch {
+      return "Farmer";
+    }
+  });
 
   useEffect(() => {
     let cancelled = false;
 
     const loadFarmerName = async () => {
-      const profileId = localStorage.getItem("govimartProfileId");
-
-      if (!profileId) {
-        setFarmerName("Farmer");
-        return;
-      }
-
       try {
-        const result = await getProfile(profileId);
+        const user = await getMyProfile();
 
         if (!cancelled) {
-          const name = result.user?.name || "Farmer";
-          setFarmerName(name);
-
-          localStorage.setItem(
-            "govimartProfile",
-            JSON.stringify(result.user)
-          );
+          setFarmerName(user?.name || "Farmer");
         }
       } catch (error) {
         console.error("Failed to load farmer name:", error);
+
+        if (!cancelled) {
+          try {
+            const user = JSON.parse(
+              sessionStorage.getItem("goviUser") || "null"
+            );
+
+            setFarmerName(user?.name || "Farmer");
+          } catch {
+            setFarmerName("Farmer");
+          }
+        }
+      }
+    };
+
+    const handleProfileUpdate = () => {
+      try {
+        const user = JSON.parse(
+          sessionStorage.getItem("goviUser") || "null"
+        );
+
+        setFarmerName(user?.name || "Farmer");
+      } catch {
+        setFarmerName("Farmer");
       }
     };
 
     loadFarmerName();
 
-    window.addEventListener("govimart-profile-updated", loadFarmerName);
+    window.addEventListener(
+      "govi-profile-updated",
+      handleProfileUpdate
+    );
+
+    window.addEventListener(
+      "govimart-profile-updated",
+      handleProfileUpdate
+    );
 
     return () => {
       cancelled = true;
-      window.removeEventListener("govimart-profile-updated", loadFarmerName);
+
+      window.removeEventListener(
+        "govi-profile-updated",
+        handleProfileUpdate
+      );
+
+      window.removeEventListener(
+        "govimart-profile-updated",
+        handleProfileUpdate
+      );
     };
   }, []);
 
@@ -46,7 +84,7 @@ function Header() {
     <header className="topbar">
       <div>
         <p className="topbar-label">FARMER PORTAL</p>
-        <h2>Dashboard</h2>
+        <h2>{title}</h2>
       </div>
 
       <div className="farmer-profile">

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
@@ -14,33 +14,61 @@ import "../../App.css";
 
 function MyProducts() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
+      const storedUser = sessionStorage.getItem("goviUser");
+      const user = storedUser ? JSON.parse(storedUser) : null;
+
+      if (!sessionStorage.getItem("goviToken") || !user?._id) {
+        navigate("/login/farmer", { replace: true });
+        return;
+      }
+
+      if (user.role !== "farmer") {
+        setError("This page is available to farmer accounts only.");
+        setProducts([]);
+        return;
+      }
+
       const data = await getAllProducts();
-      setProducts(Array.isArray(data.products) ? data.products : []);
+      const allProducts = Array.isArray(data.products)
+        ? data.products
+        : [];
+
+      const farmerProducts = allProducts.filter((product) => {
+        const ownerId =
+          typeof product.farmerId === "object"
+            ? product.farmerId?._id
+            : product.farmerId;
+
+        return ownerId && String(ownerId) === String(user._id);
+      });
+
+      setProducts(farmerProducts);
     } catch (err) {
       console.error("Error loading products:", err);
+
       setError(
         err.response?.data?.message ||
+          err.message ||
           "Unable to load products. Check that your backend is running."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this product?")) {
@@ -73,23 +101,22 @@ function MyProducts() {
       <Sidebar onAddProduct={handleAddProduct} />
 
       <main className="main-content">
-        <Header />
+        <Header title="My Products" />
 
         <section className="content-panel" id="products">
           <div className="panel-heading">
             <div>
               <h2>My Products</h2>
               <p>Manage your listed farm products</p>
-              <br></br>
             </div>
 
             <button
-  type="button"
-  className="secondary-button"
-  onClick={() => window.location.href = "/farmer/dashboard"}
->
-  Cancel
-</button>
+              type="button"
+              className="secondary-button"
+              onClick={() => navigate("/farmer/dashboard")}
+            >
+              Cancel
+            </button>
           </div>
 
           {loading ? (
@@ -124,7 +151,5 @@ function MyProducts() {
     </div>
   );
 }
-const handleCancel = () => {
-  navigate("/farmer/dashboard");
-};
+
 export default MyProducts;

@@ -2,8 +2,33 @@ const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const User = require("../models/User");
 
+const getUserId = (req) => req.user?.id || req.user?._id;
+
+const requireFarmer = (req, res) => {
+  const userId = getUserId(req);
+
+  if (!userId || !mongoose.isValidObjectId(userId)) {
+    res.status(401).json({
+      message: "Please log in with a farmer account.",
+    });
+    return null;
+  }
+
+  if (req.user?.role !== "farmer") {
+    res.status(403).json({
+      message: "Only farmers can manage products.",
+    });
+    return null;
+  }
+
+  return userId;
+};
+
 const createProduct = async (req, res) => {
   try {
+    const farmerId = requireFarmer(req, res);
+    if (!farmerId) return;
+
     const {
       name,
       description,
@@ -13,15 +38,8 @@ const createProduct = async (req, res) => {
       quantity,
       unit,
       imageUrl,
-      farmerId,
       district,
     } = req.body;
-
-    if (!mongoose.isValidObjectId(farmerId)) {
-      return res.status(400).json({
-        message: "A valid farmer ID is required.",
-      });
-    }
 
     const farmer = await User.findOne({
       _id: farmerId,
@@ -29,8 +47,8 @@ const createProduct = async (req, res) => {
     });
 
     if (!farmer) {
-      return res.status(400).json({
-        message: "The selected farmer does not exist.",
+      return res.status(403).json({
+        message: "Farmer account could not be verified.",
       });
     }
 
@@ -62,7 +80,7 @@ const createProduct = async (req, res) => {
       unit,
       imageUrl,
       farmerId: farmer._id,
-      district,
+      district: district || farmer.district,
     });
 
     const populatedProduct = await Product.findById(product._id)
@@ -93,8 +111,24 @@ const createProduct = async (req, res) => {
 
 const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find()
-      .populate("farmerId", "name farmName")
+    let filter = {};
+
+    // Authenticated farmers see only their own products.
+    if (req.user?.role === "farmer") {
+      const farmerId = getUserId(req);
+
+      if (!farmerId || !mongoose.isValidObjectId(farmerId)) {
+        return res.status(401).json({
+          message: "Please log in again.",
+        });
+      }
+
+      filter = { farmerId };
+    }
+
+    // Consumers and public browsing can see all products.
+    const products = await Product.find(filter)
+      .populate("farmerId", "name farmName district")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -119,7 +153,7 @@ const getProductById = async (req, res) => {
     }
 
     const product = await Product.findById(req.params.id)
-      .populate("farmerId", "name farmName");
+      .populate("farmerId", "name farmName district");
 
     if (!product) {
       return res.status(404).json({
@@ -139,6 +173,9 @@ const getProductById = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
+    const farmerId = requireFarmer(req, res);
+    if (!farmerId) return;
+
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({
         message: "Invalid product ID.",
@@ -147,9 +184,30 @@ const updateProduct = async (req, res) => {
 
     const updates = { ...req.body };
 
+    // Ownership must never be changed through the request body.
     delete updates._id;
     delete updates.__v;
     delete updates.farmerId;
+    delete updates.createdAt;
+    delete updates.updatedAt;
+
+    const allowedFields = [
+      "name",
+      "description",
+      "category",
+      "price",
+      "initialStock",
+      "quantity",
+      "unit",
+      "imageUrl",
+      "district",
+    ];
+
+    Object.keys(updates).forEach((key) => {
+      if (!allowedFields.includes(key)) {
+        delete updates[key];
+      }
+    });
 
     if (updates.price !== undefined) {
       updates.price = Number(updates.price);
@@ -163,30 +221,38 @@ const updateProduct = async (req, res) => {
       updates.quantity = Number(updates.quantity);
     }
 
+    const existingProduct = await Product.findOne({
+      _id: req.params.id,
+      farmerId,
+    });
+
+    if (!existingProduct) {
+      return res.status(404).json({
+        message: "Product not found in your listings.",
+      });
+    }
+
+    const nextInitialStock =
+      updates.initialStock ?? existingProduct.initialStock;
+
+    const nextQuantity =
+      updates.quantity ?? existingProduct.quantity;
+
     if (
-      updates.initialStock !== undefined &&
-      updates.quantity !== undefined &&
-      updates.quantity > updates.initialStock
+      nextInitialStock !== undefined &&
+      nextQuantity !== undefined &&
+      nextQuantity > nextInitialStock
     ) {
       return res.status(400).json({
         message: "Available stock cannot exceed initial stock.",
       });
     }
 
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      {
-        new: true,
-        runValidators: true,
-      }
-    ).populate("farmerId", "name farmName");
+    Object.assign(existingProduct, updates);
 
-    if (!product) {
-      return res.status(404).json({
-        message: "Product not found.",
-      });
-    }
+    const product = await existingProduct.save();
+
+    await product.populate("farmerId", "name farmName district");
 
     return res.status(200).json({
       message: "Product updated successfully.",
@@ -213,17 +279,23 @@ const updateProduct = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
+    const farmerId = requireFarmer(req, res);
+    if (!farmerId) return;
+
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({
         message: "Invalid product ID.",
       });
     }
 
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findOneAndDelete({
+      _id: req.params.id,
+      farmerId,
+    });
 
     if (!product) {
       return res.status(404).json({
-        message: "Product not found.",
+        message: "Product not found in your listings.",
       });
     }
 

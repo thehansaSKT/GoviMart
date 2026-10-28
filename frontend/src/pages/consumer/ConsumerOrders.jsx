@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ConsumerSidebar from "../../components/consumer/ConsumerSidebar";
@@ -12,26 +11,64 @@ function ConsumerOrders() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchOrders = async () => {
       try {
         setLoading(true);
         setError("");
 
+        const token = sessionStorage.getItem("goviToken");
+        const storedUser = sessionStorage.getItem("goviUser");
+        const user = storedUser ? JSON.parse(storedUser) : null;
+
+        if (!token || !user?._id) {
+          navigate("/login/consumer", { replace: true });
+          return;
+        }
+
+        if (user.role !== "consumer") {
+          setError("This page is available to consumer accounts only.");
+          return;
+        }
+
         const result = await getAllOrders();
-        setOrders(result.orders || []);
+
+        if (!cancelled) {
+          setOrders(Array.isArray(result.orders) ? result.orders : []);
+        }
       } catch (err) {
         console.error(
           "Unable to fetch orders:",
           err.response?.data || err.message
         );
-        setError("Unable to load orders. Please try again.");
+
+        if (!cancelled) {
+          if (err.response?.status === 401) {
+            localStorage.removeItem("goviToken");
+            localStorage.removeItem("goviUser");
+            navigate("/login/consumer", { replace: true });
+            return;
+          }
+
+          setError(
+            err.response?.data?.message ||
+              "Unable to load orders. Please try again."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchOrders();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const formatPrice = (amount) =>
     `Rs. ${Number(amount || 0).toLocaleString("en-LK", {

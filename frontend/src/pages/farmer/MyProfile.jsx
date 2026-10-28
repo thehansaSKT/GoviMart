@@ -3,35 +3,32 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import {
-  createProfile,
-  getProfile,
-  updateProfile,
-} from "../../services/userService";
+  getMyProfile,
+  updateMyProfile,
+  logoutUser,
+} from "../../services/authService";
 import "../../App.css";
+
+const emptyForm = {
+  name: "",
+  email: "",
+  phone: "",
+  farmName: "",
+  address: "",
+  district: "",
+};
 
 function MyProfile() {
   const navigate = useNavigate();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [profileId, setProfileId] = useState(
-    localStorage.getItem("govimartProfileId") || ""
-  );
   const [loading, setLoading] = useState(false);
-  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
-  const [formData, setFormData] = useState({
-    name: "Farmer",
-    email: "",
-    phone: "",
-    farmName: "",
-    address: "",
-  });
+  const [formData, setFormData] = useState(emptyForm);
 
   useEffect(() => {
-    if (!profileId) return;
-
     let cancelled = false;
 
     const loadProfile = async () => {
@@ -39,11 +36,14 @@ function MyProfile() {
       setError("");
 
       try {
-        const result = await getProfile(profileId);
+        const user = await getMyProfile();
 
         if (cancelled) return;
 
-        const user = result.user;
+        if (user?.role !== "farmer") {
+          navigate("/", { replace: true });
+          return;
+        }
 
         setFormData({
           name: user.name || "",
@@ -51,16 +51,21 @@ function MyProfile() {
           phone: user.phone || "",
           farmName: user.farmName || "",
           address: user.address || "",
+          district: user.district || "",
         });
       } catch (err) {
         if (cancelled) return;
 
+        console.error("Unable to load farmer profile:", err);
+
         setError(
-          err.response?.data?.message ||
+          err.message ||
             "Could not load your profile. Please check your backend connection."
         );
       } finally {
-        if (!cancelled) setLoadingProfile(false);
+        if (!cancelled) {
+          setLoadingProfile(false);
+        }
       }
     };
 
@@ -69,7 +74,7 @@ function MyProfile() {
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+  }, [navigate]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -86,39 +91,32 @@ function MyProfile() {
     setIsEditing(true);
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    setIsEditing(false);
     setError("");
     setSuccess("");
-    setIsEditing(false);
+    setLoadingProfile(true);
 
-    if (profileId) {
-      getProfile(profileId)
-        .then(({ user }) => {
-          setFormData({
-            name: user.name || "",
-            email: user.email || "",
-            phone: user.phone || "",
-            farmName: user.farmName || "",
-            address: user.address || "",
-          });
-        })
-        .catch(() => {
-          setError("Could not reload your saved profile.");
-        });
-    } else {
+    try {
+      const user = await getMyProfile();
+
       setFormData({
-        name: "Farmer",
-        email: "",
-        phone: "",
-        farmName: "",
-        address: "",
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        farmName: user.farmName || "",
+        address: user.address || "",
+        district: user.district || "",
       });
+    } catch (err) {
+      setError(err.message || "Could not reload your saved profile.");
+    } finally {
+      setLoadingProfile(false);
     }
   };
 
   const handleSave = async (event) => {
     event.preventDefault();
-
     setError("");
     setSuccess("");
 
@@ -128,6 +126,7 @@ function MyProfile() {
       phone: formData.phone.trim(),
       farmName: formData.farmName.trim(),
       address: formData.address.trim(),
+      district: formData.district.trim(),
     };
 
     if (!cleanedData.name || !cleanedData.email) {
@@ -135,61 +134,69 @@ function MyProfile() {
       return;
     }
 
+    if (
+      cleanedData.phone &&
+      !/^0\d{9}$/.test(cleanedData.phone)
+    ) {
+      setError("Enter a valid 10-digit phone number starting with 0.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      let result;
-
-      if (profileId) {
-        result = await updateProfile(profileId, cleanedData);
-      } else {
-        result = await createProfile(cleanedData);
-      }
-
+      const result = await updateMyProfile(cleanedData);
       const savedUser = result.user;
 
-      if (!savedUser?._id) {
-        throw new Error("The server did not return a saved profile ID.");
+      if (!savedUser) {
+        throw new Error("The server did not return the updated profile.");
       }
 
-      localStorage.setItem("govimartProfileId", savedUser._id);
-      setProfileId(savedUser._id);
+      localStorage.setItem("goviUser", JSON.stringify(savedUser));
 
-      localStorage.setItem(
-  "govimartProfile",
-  JSON.stringify(savedUser)
-);
-
-window.dispatchEvent(new Event("storage"));
       setFormData({
         name: savedUser.name || "",
         email: savedUser.email || "",
         phone: savedUser.phone || "",
         farmName: savedUser.farmName || "",
         address: savedUser.address || "",
+        district: savedUser.district || "",
       });
 
+      window.dispatchEvent(new Event("govi-profile-updated"));
+      window.dispatchEvent(new Event("govimart-profile-updated"));
+
       setIsEditing(false);
-      setSuccess("Profile saved successfully to MongoDB!");
+      setSuccess("Profile updated successfully.");
     } catch (err) {
+      console.error("Unable to save farmer profile:", err);
+
       setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to save your profile. Check your backend and database connection."
+        err.message ||
+          "Failed to save your profile. Please try again."
       );
     } finally {
       setLoading(false);
     }
   };
- 
 
-window.dispatchEvent(new Event("storage"));
+  const handleSignOut = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to sign out?"
+    );
+
+    if (!confirmed) return;
+
+    logoutUser();
+    navigate("/", { replace: true });
+  };
+
   return (
     <div className="farmer-dashboard">
       <Sidebar />
 
       <main className="main-content">
-        <Header />
+        <Header title="My Profile" />
 
         <section className="content-panel profile-panel">
           <div className="panel-heading">
@@ -283,7 +290,7 @@ window.dispatchEvent(new Event("storage"));
                         type="tel"
                         value={formData.phone}
                         onChange={handleChange}
-                        placeholder="Enter your phone number"
+                        placeholder="0771234567"
                       />
                     ) : (
                       <strong>{formData.phone || "Not provided"}</strong>
@@ -323,6 +330,23 @@ window.dispatchEvent(new Event("storage"));
                       <strong>{formData.address || "Not provided"}</strong>
                     )}
                   </div>
+
+                  <div className="profile-field">
+                    <label htmlFor="district">District</label>
+
+                    {isEditing ? (
+                      <input
+                        id="district"
+                        name="district"
+                        type="text"
+                        value={formData.district}
+                        onChange={handleChange}
+                        placeholder="Enter your district"
+                      />
+                    ) : (
+                      <strong>{formData.district || "Not provided"}</strong>
+                    )}
+                  </div>
                 </div>
 
                 {isEditing && (
@@ -355,6 +379,14 @@ window.dispatchEvent(new Event("storage"));
                     onClick={() => navigate("/farmer/dashboard")}
                   >
                     Back to Dashboard
+                  </button>
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={handleSignOut}
+                  >
+                    Sign Out
                   </button>
                 </div>
               )}

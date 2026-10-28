@@ -24,7 +24,7 @@ function AddProductPage() {
       <Sidebar />
 
       <main className="main-content">
-        <Header />
+        <Header title="Add Product" />
 
         <AddProduct
           product={product}

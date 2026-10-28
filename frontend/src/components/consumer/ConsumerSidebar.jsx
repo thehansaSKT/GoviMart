@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getCart } from "../../services/cartService";
 
 function ConsumerSidebar() {
   const navigate = useNavigate();
@@ -9,13 +10,8 @@ function ConsumerSidebar() {
   useEffect(() => {
     const refreshCartCount = () => {
       try {
-        const cart = JSON.parse(
-          localStorage.getItem("govimartCart") || "[]"
-        );
-
-        const validCart = Array.isArray(cart) ? cart : [];
-
-        setCartCount(validCart.length);
+        const cart = getCart();
+        setCartCount(Array.isArray(cart) ? cart.length : 0);
       } catch {
         setCartCount(0);
       }

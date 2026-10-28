@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const productSchema = new mongoose.Schema(
@@ -21,12 +22,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, "Product category is required"],
       enum: {
-        values: [
-          "Vegetables",
-          "Fruits",
-          "Grains",
-          "Other",
-        ],
+        values: ["Vegetables", "Fruits", "Grains", "Other"],
         message: "Please select a valid product category",
       },
     },
@@ -37,11 +33,26 @@ const productSchema = new mongoose.Schema(
       min: [0.01, "Price must be greater than zero"],
     },
 
+    initialStock: {
+      type: Number,
+      required: [true, "Initial stock is required"],
+      min: [0, "Initial stock cannot be negative"],
+      default: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: "Initial stock must be a whole number",
+      },
+    },
+
     quantity: {
       type: Number,
-      required: [true, "Product quantity is required"],
-      min: [0, "Quantity cannot be negative"],
+      required: [true, "Available quantity is required"],
+      min: [0, "Available quantity cannot be negative"],
       default: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: "Available quantity must be a whole number",
+      },
     },
 
     unit: {
@@ -63,15 +74,15 @@ const productSchema = new mongoose.Schema(
     farmerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      default: null,
+      required: [true, "Farmer is required"],
     },
-    district: {
-  type: String,
-  required: [true, "Farmer district is required"],
-  trim: true,
-  maxlength: 100,
-},
 
+    district: {
+      type: String,
+      required: [true, "Farmer district is required"],
+      trim: true,
+      maxlength: [100, "District cannot exceed 100 characters"],
+    },
   },
   {
     timestamps: true,
