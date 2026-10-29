@@ -3,7 +3,7 @@ import {
   addProduct,
   updateProduct,
 } from "../../services/productService";
-import "../../App.css";
+import "./Farmer.css";
 
 const districts = [
   "Colombo", "Gampaha", "Kalutara", "Kandy",

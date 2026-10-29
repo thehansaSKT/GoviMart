@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getMyProfile } from "../services/authService";
+import { getMyProfile } from "../../services/authService";
 
 function Header({ title = "Dashboard" }) {
   const [farmerName, setFarmerName] = useState(() => {
