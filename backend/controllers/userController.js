@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+
 const createToken = (user) => {
   if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET is not configured");
@@ -16,6 +17,7 @@ const createToken = (user) => {
     { expiresIn: "7d" }
   );
 };
+
 
 const publicUser = (user) => ({
   _id: user._id,
@@ -59,7 +61,7 @@ exports.register = async (req, res) => {
 
     if (!["farmer", "consumer"].includes(role)) {
       return res.status(400).json({
-        message: "Please select Farmer or Consumer.",
+        message: "Invalid account type.",
       });
     }
 
@@ -128,7 +130,9 @@ exports.register = async (req, res) => {
     }
 
     if (error.name === "ValidationError") {
-      return res.status(400).json({ message: error.message });
+      return res.status(400).json({
+        message: error.message,
+      });
     }
 
     console.error("Registration error:", error);
@@ -139,17 +143,28 @@ exports.register = async (req, res) => {
   }
 };
 
+
 exports.login = async (req, res) => {
   try {
     const { username, password, role } = req.body;
 
-    if (!username?.trim() || !password || !role) {
+    if (
+      typeof username !== "string" ||
+      !username.trim() ||
+      typeof password !== "string" ||
+      !password ||
+      typeof role !== "string" ||
+      !role
+    ) {
       return res.status(400).json({
         message: "Username, password, and account type are required.",
       });
     }
 
-    if (!["farmer", "consumer"].includes(role)) {
+    const normalizedRole = role.trim().toLowerCase();
+
+ 
+    if (!["farmer", "consumer", "admin"].includes(normalizedRole)) {
       return res.status(400).json({
         message: "Invalid account type.",
       });
@@ -157,12 +172,18 @@ exports.login = async (req, res) => {
 
     const user = await User.findOne({
       username: username.trim().toLowerCase(),
-      role,
+      role: normalizedRole,
     }).select("+password");
 
     if (!user) {
       return res.status(401).json({
         message: "Invalid username, password, or account type.",
+      });
+    }
+
+    if (!user.password) {
+      return res.status(401).json({
+        message: "Invalid username or password.",
       });
     }
 
@@ -195,7 +216,8 @@ exports.login = async (req, res) => {
 
 exports.getMyProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password -__v");
+    const user = await User.findById(req.user.id)
+      .select("-password -__v");
 
     if (!user) {
       return res.status(404).json({
@@ -203,7 +225,9 @@ exports.getMyProfile = async (req, res) => {
       });
     }
 
-    return res.status(200).json({ user });
+    return res.status(200).json({
+      user,
+    });
   } catch (error) {
     console.error("Get profile error:", error);
 
@@ -212,6 +236,7 @@ exports.getMyProfile = async (req, res) => {
     });
   }
 };
+
 
 exports.updateMyProfile = async (req, res) => {
   try {
@@ -251,7 +276,10 @@ exports.updateMyProfile = async (req, res) => {
       delete updates.farmName;
     }
 
-    if (currentUser.role === "farmer" && updates.farmName === "") {
+    if (
+      currentUser.role === "farmer" &&
+      updates.farmName === ""
+    ) {
       return res.status(400).json({
         message: "Farm name cannot be empty.",
       });

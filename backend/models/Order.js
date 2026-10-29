@@ -7,16 +7,37 @@ const orderItemSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
+
+    farmerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+    },
+
+    farmerName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    district: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     name: {
       type: String,
       required: true,
       trim: true,
     },
+
     price: {
       type: Number,
       required: true,
       min: 0.01,
     },
+
     quantity: {
       type: Number,
       required: true,
@@ -26,6 +47,7 @@ const orderItemSchema = new mongoose.Schema(
         message: "Quantity must be a whole number.",
       },
     },
+
     unit: {
       type: String,
       default: "kg",
@@ -55,6 +77,7 @@ const orderSchema = new mongoose.Schema(
         required: true,
         trim: true,
       },
+
       phone: {
         type: String,
         required: true,
@@ -68,6 +91,13 @@ const orderSchema = new mongoose.Schema(
         required: true,
         trim: true,
       },
+
+      district: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
       city: {
         type: String,
         required: true,

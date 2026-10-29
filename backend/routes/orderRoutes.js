@@ -6,13 +6,28 @@ const {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
+  getFarmerOrders,
 } = require("../controllers/orderController");
 
-const { authenticateToken } = require("../middleware/authMiddleware");
+const {
+  authenticateToken,
+} = require("../middleware/authMiddleware");
+
 
 router.post("/", authenticateToken, createOrder);
+
+
+router.get("/farmer", authenticateToken, getFarmerOrders);
+
 router.get("/", authenticateToken, getAllOrders);
+
+
 router.get("/:id", authenticateToken, getOrderById);
-router.patch("/:id/status", authenticateToken, updateOrderStatus);
+
+router.patch(
+  "/:id/status",
+  authenticateToken,
+  updateOrderStatus
+);
 
 module.exports = router;

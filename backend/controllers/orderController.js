@@ -24,73 +24,95 @@ const createOrder = async (req, res) => {
     });
   }
 
+  const {
+    customer,
+    deliveryAddress,
+    items,
+    paymentMethod,
+  } = req.body;
+
+  if (
+    !customer?.fullName?.trim() ||
+    !customer?.phone?.trim() ||
+    !deliveryAddress?.address?.trim() ||
+    !deliveryAddress?.district?.trim() ||
+    !deliveryAddress?.city?.trim()
+  ) {
+    return res.status(400).json({
+      message:
+        "Please provide your name, phone number, delivery address, district, and city.",
+    });
+  }
+
+  if (
+    !Array.isArray(items) ||
+    items.length === 0 ||
+    !["Cash on Delivery", "Bank Transfer"].includes(
+      paymentMethod
+    )
+  ) {
+    return res.status(400).json({
+      message: "Invalid order items or payment method.",
+    });
+  }
+
+  const deliveryDistrict = normalizeDistrict(
+    deliveryAddress.district
+  );
+
+  const normalizedItems = new Map();
+
+  for (const item of items) {
+    if (
+      !mongoose.isValidObjectId(item.productId) ||
+      !Number.isInteger(item.quantity) ||
+      item.quantity < 1
+    ) {
+      return res.status(400).json({
+        message: "Invalid product ID or quantity.",
+      });
+    }
+
+    const productId = String(item.productId);
+
+    normalizedItems.set(
+      productId,
+      (normalizedItems.get(productId) || 0) +
+        item.quantity
+    );
+  }
+
   const session = await mongoose.startSession();
 
   try {
-    const { customer, deliveryAddress, items, paymentMethod } = req.body;
-
-    if (
-      !customer?.fullName?.trim() ||
-      !customer?.phone?.trim() ||
-      !deliveryAddress?.address?.trim() ||
-      !deliveryAddress?.district?.trim() ||
-      !deliveryAddress?.city?.trim()
-    ) {
-      return res.status(400).json({
-        message:
-          "Please provide your name, phone number, delivery address, district, and city.",
-      });
-    }
-
-    if (
-      !Array.isArray(items) ||
-      items.length === 0 ||
-      !["Cash on Delivery", "Bank Transfer"].includes(paymentMethod)
-    ) {
-      return res.status(400).json({
-        message: "Invalid order items or payment method.",
-      });
-    }
-
-    const deliveryDistrict = normalizeDistrict(deliveryAddress.district);
-    const normalizedItems = new Map();
-
-    for (const item of items) {
-      if (
-        !mongoose.isValidObjectId(item.productId) ||
-        !Number.isInteger(item.quantity) ||
-        item.quantity < 1
-      ) {
-        return res.status(400).json({
-          message: "Invalid product ID or quantity.",
-        });
-      }
-
-      const productId = String(item.productId);
-
-      normalizedItems.set(
-        productId,
-        (normalizedItems.get(productId) || 0) + item.quantity
-      );
-    }
-
     let createdOrder;
 
     await session.withTransaction(async () => {
       const products = await Product.find({
-        _id: { $in: [...normalizedItems.keys()] },
+        _id: {
+          $in: [...normalizedItems.keys()],
+        },
       }).session(session);
 
       if (products.length !== normalizedItems.size) {
-        throw new Error("One or more products no longer exist.");
+        throw new Error(
+          "One or more products no longer exist."
+        );
       }
 
-      const farmerIds = products
-        .map((product) => product.farmerId)
-        .filter(Boolean)
-        .map((id) => String(id));
+      const farmerIds = [
+        ...new Set(
+          products.map((product) =>
+            String(product.farmerId || "")
+          )
+        ),
+      ];
 
-      if (farmerIds.length !== products.length) {
+      if (
+        farmerIds.some(
+          (id) => !mongoose.isValidObjectId(id)
+        )
+      ) {
         throw new Error(
           "A product is missing its farmer information. Please contact the administrator."
         );
@@ -99,13 +121,18 @@ const createOrder = async (req, res) => {
       const farmers = await User.find({
         _id: { $in: farmerIds },
         role: "farmer",
-      }).session(session);
+      })
+        .select("name username phone farmName address district role")
+        .session(session);
 
       const farmerMap = new Map(
-        farmers.map((farmer) => [String(farmer._id), farmer])
+        farmers.map((farmer) => [
+          String(farmer._id),
+          farmer,
+        ])
       );
 
-      if (farmerMap.size !== new Set(farmerIds).size) {
+      if (farmerMap.size !== farmerIds.length) {
         throw new Error(
           "Farmer information could not be verified for one or more products."
         );
@@ -118,7 +145,10 @@ const createOrder = async (req, res) => {
           String(product._id)
         );
 
-        if (normalizeDistrict(product.district) !== deliveryDistrict) {
+        if (
+          normalizeDistrict(product.district) !==
+          deliveryDistrict
+        ) {
           throw new Error(
             `${product.name} is from ${product.district}, but your delivery district is ${deliveryAddress.district}. All products in one order must be from the delivery district.`
           );
@@ -130,7 +160,9 @@ const createOrder = async (req, res) => {
           );
         }
 
-        const farmer = farmerMap.get(String(product.farmerId));
+        const farmer = farmerMap.get(
+          String(product.farmerId)
+        );
 
         orderItems.push({
           productId: product._id,
@@ -145,12 +177,14 @@ const createOrder = async (req, res) => {
       }
 
       const subtotal = orderItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum, item) =>
+          sum + item.price * item.quantity,
         0
       );
 
       const deliveryFee = subtotal > 0 ? 250 : 0;
 
+      
       for (const item of orderItems) {
         const stockUpdate = await Product.updateOne(
           {
@@ -158,7 +192,9 @@ const createOrder = async (req, res) => {
             quantity: { $gte: item.quantity },
           },
           {
-            $inc: { quantity: -item.quantity },
+            $inc: {
+              quantity: -item.quantity,
+            },
           },
           { session }
         );
@@ -174,20 +210,23 @@ const createOrder = async (req, res) => {
         Math.random() * 100000
       )}`;
 
-      const orders = await Order.create(
+      const createdOrders = await Order.create(
         [
           {
             userId,
             orderNumber,
+
             customer: {
               fullName: customer.fullName.trim(),
               phone: customer.phone.trim(),
             },
+
             deliveryAddress: {
               address: deliveryAddress.address.trim(),
               district: deliveryAddress.district.trim(),
               city: deliveryAddress.city.trim(),
             },
+
             items: orderItems,
             subtotal,
             deliveryFee,
@@ -199,7 +238,7 @@ const createOrder = async (req, res) => {
         { session }
       );
 
-      createdOrder = orders[0];
+      createdOrder = createdOrders[0];
     });
 
     return res.status(201).json({
@@ -209,31 +248,36 @@ const createOrder = async (req, res) => {
   } catch (error) {
     console.error("Create order error:", error);
 
-    if (
-      error.message?.includes("district") ||
-      error.message?.includes("Insufficient stock") ||
-      error.message?.includes("no longer exist") ||
-      error.message?.includes("farmer information") ||
-      error.message?.includes("Farmer information") ||
-      error.message?.includes("stock for")
-    ) {
-      return res.status(400).json({ message: error.message });
-    }
+    const clientErrors = [
+      "district",
+      "Insufficient stock",
+      "no longer exist",
+      "farmer information",
+      "Farmer information",
+      "stock for",
+    ];
 
     if (
+      clientErrors.some((message) =>
+        error.message?.includes(message)
+      ) ||
       error.name === "ValidationError" ||
       error.name === "CastError"
     ) {
-      return res.status(400).json({ message: error.message });
+      return res.status(400).json({
+        message: error.message,
+      });
     }
 
     return res.status(500).json({
-      message: "Unable to place order. Please try again.",
+      message:
+        "Unable to place order. Please try again.",
     });
   } finally {
     await session.endSession();
   }
 };
+
 
 const getAllOrders = async (req, res) => {
   try {
@@ -250,7 +294,9 @@ const getAllOrders = async (req, res) => {
         ? {}
         : { userId };
 
-    const orders = await Order.find(filter).sort({ createdAt: -1 });
+    const orders = await Order.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.status(200).json({
       count: orders.length,
@@ -284,15 +330,88 @@ const getOrderById = async (req, res) => {
     const filter =
       req.user.role === "admin"
         ? { _id: req.params.id }
-        : { _id: req.params.id, userId };
+        : {
+            _id: req.params.id,
+            userId,
+          };
 
-    const order = await Order.findOne(filter);
+    const order = await Order.findOne(filter)
+      .populate({
+        path: "userId",
+        select: "name username phone address district role",
+      })
+      .populate({
+        path: "items.farmerId",
+        select:
+          "name username phone farmName address district role",
+      })
+      .populate({
+        path: "items.productId",
+        select:
+          "name price unit district farmerId",
+        populate: {
+          path: "farmerId",
+          select:
+            "name username phone farmName address district role",
+        },
+      })
+      .lean();
 
     if (!order) {
       return res.status(404).json({
         message: "Order not found.",
       });
     }
+
+    order.items = (order.items || []).map((item) => {
+      const product =
+        item.productId &&
+        typeof item.productId === "object"
+          ? item.productId
+          : null;
+
+      const farmer =
+        item.farmerId &&
+        typeof item.farmerId === "object"
+          ? item.farmerId
+          : product?.farmerId &&
+              typeof product.farmerId === "object"
+            ? product.farmerId
+            : null;
+
+      return {
+        ...item,
+
+        productName: item.name || product?.name || "Product",
+
+        farmer: farmer
+          ? {
+              _id: farmer._id,
+              name: farmer.name || "",
+              username: farmer.username || "",
+              farmName: farmer.farmName || "",
+              phone: farmer.phone || "",
+              address: farmer.address || "",
+              district:
+                farmer.district ||
+                product?.district ||
+                item.district ||
+                "",
+            }
+          : {
+              name: item.farmerName || "",
+              farmName: item.farmerName || "",
+              phone: "",
+              address: "",
+              district:
+                product?.district ||
+                item.district ||
+                "",
+            },
+
+        product,
+      };
+    });
 
     return res.status(200).json({ order });
   } catch (error) {
@@ -302,13 +421,13 @@ const getOrderById = async (req, res) => {
       message: "Unable to retrieve order.",
     });
   }
-};
-
+}
 const updateOrderStatus = async (req, res) => {
   try {
     if (req.user?.role !== "admin") {
       return res.status(403).json({
-        message: "Only administrators can update order status.",
+        message:
+          "Only administrators can update order status.",
       });
     }
 
@@ -338,7 +457,10 @@ const updateOrderStatus = async (req, res) => {
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true,
+      }
     );
 
     if (!order) {
@@ -360,9 +482,110 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+const getFarmerOrders = async (req, res) => {
+  try {
+    const farmerId = getAuthenticatedUserId(req);
+
+    if (
+      !farmerId ||
+      !mongoose.isValidObjectId(farmerId)
+    ) {
+      return res.status(401).json({
+        message: "Please log in to view farmer orders.",
+      });
+    }
+
+    if (req.user?.role !== "farmer") {
+      return res.status(403).json({
+        message: "Only farmers can view farmer orders.",
+      });
+    }
+
+    const products = await Product.find({ farmerId })
+      .select("_id");
+
+    const productIds = products.map(
+      (product) => product._id
+    );
+
+    if (productIds.length === 0) {
+      return res.status(200).json({
+        count: 0,
+        orders: [],
+      });
+    }
+
+    const orders = await Order.find({
+      status: {
+        $in: [
+          "Accepted",
+          "Processing",
+          "OutForDelivery",
+          "Delivered",
+        ],
+      },
+      "items.productId": {
+        $in: productIds,
+      },
+    })
+      .populate("userId", "name username")
+      .sort({ createdAt: -1 })
+      .lean();
+
+  
+    const farmerOrders = orders
+      .map((order) => {
+        const farmerItems = (order.items || []).filter(
+          (item) =>
+            productIds.some(
+              (id) =>
+                String(id) === String(item.productId)
+            )
+        );
+
+        if (farmerItems.length === 0) {
+          return null;
+        }
+
+        const farmerSubtotal = farmerItems.reduce(
+          (sum, item) =>
+            sum +
+            Number(item.price || 0) *
+              Number(item.quantity || 0),
+          0
+        );
+
+        return {
+          ...order,
+          items: farmerItems,
+          farmerSubtotal,
+          customerName:
+            order.customer?.fullName ||
+            order.userId?.name ||
+            "Customer",
+          customerPhone:
+            order.customer?.phone || "",
+        };
+      })
+      .filter(Boolean);
+
+    return res.status(200).json({
+      count: farmerOrders.length,
+      orders: farmerOrders,
+    });
+  } catch (error) {
+    console.error("Get farmer orders error:", error);
+
+    return res.status(500).json({
+      message: "Unable to retrieve farmer orders.",
+    });
+  }
+};
+
 module.exports = {
   createOrder,
   getAllOrders,
   getOrderById,
   updateOrderStatus,
+  getFarmerOrders,
 };
