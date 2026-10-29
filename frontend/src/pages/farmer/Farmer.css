@@ -1,3 +1,4 @@
+/* Farmer Dashboard */
 #root {
   min-height: 100vh;
 }
@@ -539,7 +540,7 @@ a {
     font-size: 16px;
   }
 }
-
+/* My Products */
 .product-card {
   background: #fffdf5;
   border: 1px solid #e7eadf;
@@ -631,6 +632,7 @@ a {
   background: #ffe0da;
 }
 
+/* Add Product */
 
 .add-product-panel {
   margin-bottom: 24px;
@@ -821,7 +823,7 @@ a {
   flex-wrap: wrap;
 }
 
-/* My Profile page layout fixes */
+/* My Profile  */
 .profile-panel {
   width: 100%;
   max-width: 100%;
@@ -898,8 +900,7 @@ a {
   }
 }
 
-/* Order */
-
+/* Farmer Order */
 
 :root {
   --fo-green: #426e4b;

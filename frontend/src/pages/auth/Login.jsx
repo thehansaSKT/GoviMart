@@ -47,7 +47,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <div className="auth-logo">🌿 GoviMart</div>
+        <div className="auth-logo">GoviMart</div>
 
         <h1>{role === "farmer" ? "Farmer Login" : "Consumer Login"}</h1>
         <p>Welcome back! Log in to your account.</p>

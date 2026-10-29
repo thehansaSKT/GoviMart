@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import Sidebar from "../../components/Sidebar";
-import Header from "../../components/Header";
-import ProductCard from "../../components/ProductCard";
-import EmptyProducts from "../../components/EmptyProducts";
+import Sidebar from "../../components/farmer/Sidebar";
+import Header from "../../components/farmer/Header";
+import ProductCard from "../../components/farmer/ProductCard";
+import EmptyProducts from "../../components/farmer/EmptyProducts";
 import {
   getAllProducts,
   deleteProduct,
 } from "../../services/productService";
 
-import "../../App.css";
+import "./Farmer.css";
 
 function MyProducts() {
   const navigate = useNavigate();

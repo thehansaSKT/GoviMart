@@ -113,7 +113,6 @@ const getAllProducts = async (req, res) => {
   try {
     let filter = {};
 
-    // Authenticated farmers see only their own products.
     if (req.user?.role === "farmer") {
       const farmerId = getUserId(req);
 
@@ -126,7 +125,6 @@ const getAllProducts = async (req, res) => {
       filter = { farmerId };
     }
 
-    // Consumers and public browsing can see all products.
     const products = await Product.find(filter)
       .populate("farmerId", "name farmName district")
       .sort({ createdAt: -1 });
@@ -184,7 +182,6 @@ const updateProduct = async (req, res) => {
 
     const updates = { ...req.body };
 
-    // Ownership must never be changed through the request body.
     delete updates._id;
     delete updates.__v;
     delete updates.farmerId;

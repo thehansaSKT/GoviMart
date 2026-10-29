@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import Sidebar from "../../components/Sidebar";
-import Header from "../../components/Header";
-import StatCard from "../../components/StatCard";
-import EmptyProducts from "../../components/EmptyProducts";
-import ProductCard from "../../components/ProductCard";
+import Sidebar from "../../components/farmer/Sidebar";
+import Header from "../../components/farmer/Header";
+import StatCard from "../../components/farmer/StatCard";
+import EmptyProducts from "../../components/farmer/EmptyProducts";
+import ProductCard from "../../components/farmer/ProductCard";
 import AddProduct from "./AddProduct";
 
 import { getAllProducts } from "../../services/productService";
 import { deleteProduct } from "../../services/productService";
 
-import "../../App.css";
+import "./Farmer.css";
 
 function FarmerDashboard() {
   const [products, setProducts] = useState([]);

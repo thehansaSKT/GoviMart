@@ -68,7 +68,7 @@ export default function Register() {
   return (
     <div className="auth-page">
       <form className="auth-card register-card" onSubmit={handleSubmit}>
-        <div className="auth-logo">🌿 GoviMart</div>
+        <div className="auth-logo">GoviMart</div>
 
         <h1>Create an Account</h1>
         <p>Join the GoviMart community.</p>
